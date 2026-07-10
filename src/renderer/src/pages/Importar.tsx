@@ -493,9 +493,10 @@ export function Importar() {
         {!sessao ? (
           <>
             <p className="mb-3 text-sm text-zinc-600">
-              Jeito automático: o app cria a planilha e junta as fotos/PDFs numa pasta, já monta o
-              prompt com os <strong>caminhos certos</strong>, você cola no <strong>Antigravity</strong>{' '}
-              e ele preenche sozinho. Depois é só importar.
+              Jeito automático, <strong>um mapa por vez</strong>: o app cria a planilha e junta os
+              arquivos daquele mapa numa pasta, já monta o prompt com os <strong>caminhos certos</strong>,
+              você cola no <strong>Antigravity</strong> e ele preenche sozinho. Para o próximo mapa,
+              prepare outro. Depois é só importar.
             </p>
             <Button onClick={prepararMapa} disabled={preparando}>
               {preparando ? <Spinner /> : <Sparkles className="h-4 w-4" />} Preparar mapa para IA
@@ -505,8 +506,8 @@ export function Importar() {
           <div className="space-y-3">
             <ol className="list-decimal space-y-1 pl-5 text-sm text-zinc-600">
               <li>
-                Adicione os arquivos do mapa — foto, PDF, Word, .txt, planilha{' '}
-                <span className="text-zinc-400">(pode marcar vários)</span>.
+                Adicione os arquivos <strong>de um mapa só</strong> — foto, PDF, Word, .txt, planilha{' '}
+                <span className="text-zinc-400">(pode marcar vários arquivos do mesmo mapa)</span>.
               </li>
               <li>Copie o prompt e abra o Antigravity — cole lá e mande rodar.</li>
               <li>Quando ele terminar, clique em “Já preenchi — importar”.</li>

@@ -24,6 +24,7 @@ const api: Api = {
   perguntar: invoke('chat:perguntar'),
   categorizarItens: invoke('ia:categorizar'),
   exportarBackup: invoke('backup:exportar'),
+  zerarDados: invoke('dados:zerar'),
   obterConfig: invoke('config:obter'),
   salvarConfig: invoke('config:salvar'),
   verificarUpdate: invoke('update:verificar'),

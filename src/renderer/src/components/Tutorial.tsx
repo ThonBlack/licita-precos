@@ -62,14 +62,17 @@ const PASSOS: Passo[] = [
     titulo: '2. Lançar um mapa (jeito fácil, com IA)',
     corpo: (
       <>
-        <p>Na aba “Importar mapa”, cartão roxo “Preencher com IA (Antigravity)”:</p>
+        <p>
+          Na aba “Importar mapa”, cartão roxo “Preencher com IA (Antigravity)” —{' '}
+          <strong>um mapa por vez</strong>:
+        </p>
         <ol className="mt-2 list-decimal space-y-1 pl-5 text-zinc-600">
           <li>
             Clique <strong>Preparar mapa para IA</strong> (o app cria a planilha).
           </li>
           <li>
-            Clique <strong>Adicionar arquivos</strong> e escolha os arquivos do mapa (foto, PDF,
-            Word, .txt, planilha).
+            Clique <strong>Adicionar arquivos</strong> e escolha os arquivos de <strong>um mapa só</strong>{' '}
+            (foto, PDF, Word, .txt, planilha). Cada mapa é uma planilha separada.
           </li>
           <li>
             Clique <strong>Copiar prompt</strong> e <strong>Abrir Antigravity</strong> — cole lá e

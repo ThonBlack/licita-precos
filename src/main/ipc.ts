@@ -1,5 +1,5 @@
 import { dialog, ipcMain, shell } from 'electron'
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type { DB } from './db'
 import type {
@@ -111,7 +111,20 @@ export function registrarIpc(db: DB, dbPath: string): void {
   )
 
   handle('mapas:excluir', (mapaId: number) => {
+    const row = db.prepare(`SELECT uuid FROM mapas WHERE id = ?`).get(mapaId) as
+      | { uuid: string | null }
+      | undefined
     db.prepare(`DELETE FROM mapas WHERE id = ?`).run(mapaId)
+    // também remove o pacote da pasta de sync, senão ele volta como "pendente" / fica errado nos outros PCs
+    try {
+      const cfg = obterConfig()
+      if (row?.uuid && cfg.pastaSync) {
+        const f = join(cfg.pastaSync, `mapa-${row.uuid}.json`)
+        if (existsSync(f)) unlinkSync(f)
+      }
+    } catch {
+      // best-effort: falha ao mexer na pasta de sync não derruba a exclusão local
+    }
     return null
   })
 
@@ -180,6 +193,51 @@ export function registrarIpc(db: DB, dbPath: string): void {
     if (canceled || !filePath) return null
     exportarBackup(db, dbPath, filePath)
     return { caminho: filePath }
+  })
+
+  // Zerar tudo: apaga mapas, itens, apelidos e ofertas deste PC (faz backup antes).
+  // Com limparSync, também esvazia a pasta compartilhada (remove os mapas de TODOS os PCs).
+  handle('dados:zerar', (opts: { limparSync?: boolean }) => {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    const dirBackups = join(userDataDir, 'backups')
+    mkdirSync(dirBackups, { recursive: true })
+    const backup = join(dirBackups, `licitaprecos-antes-de-zerar-${stamp}.db`)
+    try {
+      exportarBackup(db, dbPath, backup)
+    } catch {
+      // se o backup falhar, ainda assim seguimos (o usuário pediu explicitamente para zerar)
+    }
+
+    const wipe = db.transaction(() => {
+      db.prepare(`DELETE FROM ofertas`).run()
+      db.prepare(`DELETE FROM itens_aliases`).run()
+      db.prepare(`DELETE FROM mapas`).run()
+      db.prepare(`DELETE FROM itens_canonicos`).run()
+    })
+    wipe()
+
+    let arquivosSync = 0
+    if (opts?.limparSync) {
+      try {
+        const cfg = obterConfig()
+        if (cfg.pastaSync && existsSync(cfg.pastaSync)) {
+          for (const arq of readdirSync(cfg.pastaSync)) {
+            if (arq.startsWith('mapa-') && arq.endsWith('.json')) {
+              try {
+                unlinkSync(join(cfg.pastaSync, arq))
+                arquivosSync++
+              } catch {
+                // arquivo em uso / sem permissão: ignora e segue
+              }
+            }
+          }
+        }
+      } catch {
+        // pasta de sync inacessível: zera só o banco local
+      }
+    }
+
+    return { backup, arquivosSync }
   })
 
   handle('config:obter', () => {

@@ -33,11 +33,13 @@ export function montarPromptAntigravity(caminhoXlsx: string, caminhosMapas: stri
   const mapas = caminhosMapas.length
     ? caminhosMapas.map((c) => `  • ${c}`).join('\n')
     : '  • [adicione os arquivos do mapa clicando em "Adicionar arquivos" no app]'
-  return `Você tem acesso aos arquivos deste PC. Preciso preencher a planilha modelo do app "LicitaPreços" a partir de mapas de apuração de licitação (podem vir como foto, print, PDF, Word .doc/.docx, texto .txt ou planilha).
+  return `Você tem acesso aos arquivos deste PC. Preciso preencher a planilha modelo do app "LicitaPreços" a partir de UM ÚNICO mapa de apuração de licitação (os arquivos podem vir como foto, print, PDF, Word .doc/.docx, texto .txt ou planilha).
 
-ARQUIVOS
+IMPORTANTE: os arquivos abaixo são todos do MESMO mapa. Não misture itens de mapas diferentes nesta planilha. Se perceber que há mais de um mapa (órgãos/datas/IDs diferentes), PARE e me avise — cada mapa deve ser preenchido numa planilha separada.
+
+ARQUIVOS (todos do mesmo mapa)
 - Planilha modelo (já criada pelo app, preencha a aba "Mapa"): ${xlsx}
-- Mapas de apuração para ler e transcrever:
+- Arquivos do mapa para ler e transcrever:
 ${mapas}
 
 ${CORPO_ANTIGRAVITY}`

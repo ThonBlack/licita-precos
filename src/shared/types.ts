@@ -237,6 +237,7 @@ export interface Api {
   perguntar(mensagens: MensagemChat[]): Promise<Resp<string>>
   categorizarItens(descricoes: string[]): Promise<Resp<string[]>>
   exportarBackup(): Promise<Resp<{ caminho: string } | null>>
+  zerarDados(opts: { limparSync?: boolean }): Promise<Resp<{ backup: string; arquivosSync: number }>>
   obterConfig(): Promise<Resp<ConfigApp & InfoBanco>>
   salvarConfig(cfg: Partial<ConfigApp>): Promise<Resp<null>>
   verificarUpdate(): Promise<Resp<EstadoUpdate>>

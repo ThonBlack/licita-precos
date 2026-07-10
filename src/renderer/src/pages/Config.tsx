@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DatabaseBackup, FolderSync, GraduationCap, RefreshCw, RotateCw, Save, Search } from 'lucide-react'
+import { DatabaseBackup, FolderSync, GraduationCap, RefreshCw, RotateCw, Save, Search, Trash2 } from 'lucide-react'
 import type { ConfigApp, EstadoUpdate, InfoBanco, StatusSync } from '../../../shared/types'
 import { Alerta, Badge, Button, Card, Input, Spinner } from '../components/ui'
 
@@ -18,6 +18,8 @@ export function Config({ onAbrirTutorial }: { onAbrirTutorial: () => void }) {
   const [carregando, setCarregando] = useState(true)
   const [upd, setUpd] = useState<EstadoUpdate | null>(null)
   const [sync, setSync] = useState<StatusSync | null>(null)
+  const [limparSync, setLimparSync] = useState(false)
+  const [zerando, setZerando] = useState(false)
 
   useEffect(() => {
     void (async () => {
@@ -119,6 +121,31 @@ export function Config({ onAbrirTutorial }: { onAbrirTutorial: () => void }) {
 
   async function reiniciarUpd() {
     await window.api.instalarUpdate()
+  }
+
+  async function zerar() {
+    const aviso = limparSync
+      ? 'Isso vai APAGAR todos os mapas, itens e apelidos deste PC E esvaziar a pasta de sincronização (remove os mapas de TODOS os PCs). Um backup é feito antes. Continuar?'
+      : 'Isso vai APAGAR todos os mapas, itens e apelidos deste PC. Um backup é feito antes. Continuar?'
+    if (!confirm(aviso)) return
+    setZerando(true)
+    setMsg(null)
+    const res = await window.api.zerarDados({ limparSync })
+    setZerando(false)
+    if (!res.ok) {
+      setMsg({ tipo: 'erro', texto: res.error })
+      return
+    }
+    setMsg({
+      tipo: 'ok',
+      texto:
+        `Dados zerados. Backup salvo em: ${res.data.backup}.` +
+        (res.data.arquivosSync ? ` ${res.data.arquivosSync} mapa(s) removido(s) da pasta de sync.` : '')
+    })
+    const c = await window.api.obterConfig()
+    if (c.ok) setInfo(c.data)
+    const s = await window.api.statusSync()
+    if (s.ok) setSync(s.data)
   }
 
   if (carregando) return <Spinner />
@@ -258,6 +285,23 @@ export function Config({ onAbrirTutorial }: { onAbrirTutorial: () => void }) {
           </div>
         </Card>
       )}
+
+      <Card title="Zona de perigo" className="border-red-200">
+        <p className="mb-3 text-sm text-zinc-600">
+          Apaga <strong>todos os mapas, itens e apelidos</strong> deste PC para recomeçar do zero (útil
+          se importou tudo errado). Um <strong>backup automático</strong> é feito antes, na pasta{' '}
+          <code className="text-xs">backups</code> — dá para recuperar.
+        </p>
+        <label className="mb-3 flex items-center gap-2 text-sm text-zinc-700">
+          <input type="checkbox" checked={limparSync} onChange={(e) => setLimparSync(e.target.checked)} />
+          Também limpar a pasta de sincronização (remove os mapas de <strong>todos</strong> os PCs)
+        </label>
+        <div>
+          <Button variant="destructive" onClick={zerar} disabled={zerando}>
+            {zerando ? <Spinner /> : <Trash2 className="h-4 w-4" />} Zerar dados
+          </Button>
+        </div>
+      </Card>
     </div>
   )
 }
