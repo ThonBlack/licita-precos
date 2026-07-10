@@ -19,7 +19,8 @@ import { backupAutomatico } from '../src/main/services/backup'
 import { detectarPastaDrive, NOME_PASTA_DRIVE } from '../src/main/services/drive'
 import { montarPromptAntigravity } from '../src/shared/prompts'
 import { matchTermo } from '../src/main/services/matcher'
-import { historicoItem } from '../src/main/services/historico'
+import { buscarProdutos, historicoItem } from '../src/main/services/historico'
+import { listaFornecedores, opcoesFiltro, resumoPainel } from '../src/main/services/analytics'
 import { normalizar } from '../src/main/services/normalize'
 
 let falhas = 0
@@ -126,6 +127,22 @@ try {
 
   const histFiltrado = historicoItem(db, papel.id, 'alfa')
   check('filtro por proponente', histFiltrado.registros.length === 1, histFiltrado.registros.length)
+
+  // --- produtos (busca c/ filtros) + analytics (Painel/Fornecedores) --------
+  check('estatística: preço vencedor médio', historicoItem(db, papel.id).stats.precoVencedorMedio === 24.5)
+  const prods = buscarProdutos(db, {})
+  check('buscarProdutos lista os itens', prods.length >= 2, prods.length)
+  const soBeta = buscarProdutos(db, { fornecedor: 'Distribuidora Beta' })
+  check('filtro por fornecedor restringe', soBeta.some((p) => p.item.id === papel.id), soBeta.length)
+  const soAmerica = buscarProdutos(db, { orgao: 'E.E. América' })
+  check('filtro por órgão', soAmerica.length >= 2, soAmerica.length)
+  const forn = listaFornecedores(db)
+  check('fornecedores agregados (Beta venceu 1)', forn.some((f) => /beta/i.test(f.nome) && f.vitorias === 1), forn)
+  const painel = resumoPainel(db)
+  check('painel totais', painel.totais.mapas === 1 && painel.totais.ofertas === 4, painel.totais)
+  check('painel gasto por órgão', painel.gastoPorOrgao.some((g) => g.orgao === 'E.E. América'), painel.gastoPorOrgao)
+  const ops = opcoesFiltro(db)
+  check('opções de filtro', ops.fornecedores.length >= 2 && ops.orgaos.includes('E.E. América'), ops)
 
   // --- sincronização entre PCs (Opção A: pasta compartilhada) -------------
   const pastaSync = join(dir, 'sync')

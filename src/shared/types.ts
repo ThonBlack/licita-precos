@@ -119,6 +119,7 @@ export interface Estatisticas {
   mediana: number | null
   maximo: number | null
   vencedorFrequente: string | null
+  precoVencedorMedio: number | null // média do valor unitário das ofertas vencedoras (ajudante de proposta)
   ultimaData: string | null
 }
 
@@ -144,6 +145,7 @@ export interface ConfigApp {
   pastaSync: string // pasta compartilhada (Drive/OneDrive/rede) p/ sync entre PCs; vazio = desligado
   deviceId: string // id desta instalação (gerado 1x), vai no pacote de sync
   tutorialConcluido: boolean // false até o usuário terminar/pular o tutorial inicial
+  novidadesVersao?: string // última versão cujo "novidades" o usuário já viu
 }
 
 export interface InfoBanco {
@@ -152,6 +154,37 @@ export interface InfoBanco {
   aliases: number
   mapas: number
   ofertas: number
+}
+
+export interface ResumoPainel {
+  totais: { mapas: number; itens: number; ofertas: number; fornecedores: number }
+  gastoPorOrgao: { orgao: string; total: number; mapas: number }[]
+  topItens: { itemId: number; nome: string; maxUnit: number }[]
+  ultimosMapas: { id: number; orgao: string | null; idCompra: string | null; data: string | null; ofertas: number }[]
+}
+
+export interface Fornecedor {
+  nome: string
+  ofertas: number
+  vitorias: number
+  taxaVitoria: number // 0..1
+  itens: number // itens distintos que cotou
+  ticketMedio: number | null // média do valor total das vitórias
+}
+
+export interface FiltrosBusca {
+  termo?: string
+  fornecedor?: string
+  orgao?: string
+  categoria?: string
+  de?: string // data ISO (>=)
+  ate?: string // data ISO (<=)
+}
+
+export interface OpcoesFiltro {
+  fornecedores: string[]
+  orgaos: string[]
+  categorias: string[]
 }
 
 export interface PendenteSync {
@@ -232,7 +265,10 @@ export interface Api {
   adicionarAlias(itemId: number, alias: string): Promise<Resp<null>>
   removerAlias(aliasId: number): Promise<Resp<null>>
   buscar(termo: string): Promise<Resp<ResultadoBusca>>
-  buscarLista(termo: string): Promise<Resp<HistoricoItem[]>>
+  buscarProdutos(filtros: FiltrosBusca): Promise<Resp<HistoricoItem[]>>
+  painelResumo(): Promise<Resp<ResumoPainel>>
+  listarFornecedores(): Promise<Resp<Fornecedor[]>>
+  opcoesFiltro(): Promise<Resp<OpcoesFiltro>>
   historicoItem(itemId: number): Promise<Resp<HistoricoItem>>
   perguntar(mensagens: MensagemChat[]): Promise<Resp<string>>
   categorizarItens(descricoes: string[]): Promise<Resp<string[]>>

@@ -5,6 +5,7 @@ import type { DB } from './db'
 import type {
   ConfigApp,
   DecisaoLinha,
+  FiltrosBusca,
   LinhaImportacao,
   Mapa,
   MensagemChat,
@@ -21,7 +22,8 @@ import {
   listarCatalogo,
   removerAlias
 } from './services/catalogo'
-import { historicoItem } from './services/historico'
+import { buscarProdutos, historicoItem } from './services/historico'
+import { listaFornecedores, opcoesFiltro, resumoPainel } from './services/analytics'
 import { LIMIAR_BUSCA, matchTermo } from './services/matcher'
 import { perguntar } from './services/chat'
 import { categorizar } from './services/categorizar'
@@ -161,17 +163,13 @@ export function registrarIpc(db: DB, dbPath: string): void {
 
   handle('historico:item', (itemId: number) => historicoItem(db, itemId))
 
-  // Busca-lista (Produtos e preços): vazio = todos os itens; com termo = todos que casam.
-  // Cada item vem com estatísticas + histórico, p/ mostrar preços e licitações inline.
-  handle('busca:lista', (termo: string) => {
-    const t = (termo ?? '').trim()
-    const ids = t
-      ? matchTermo(db, t, 100).map((c) => c.itemId)
-      : (db.prepare(`SELECT id FROM itens_canonicos ORDER BY nome COLLATE NOCASE`).all() as { id: number }[]).map(
-          (r) => r.id
-        )
-    return ids.map((id) => historicoItem(db, id))
-  })
+  // Busca de produtos com filtros (termo/fornecedor/órgão/categoria/período). Cada item vem
+  // com estatísticas + histórico completo, p/ mostrar preços e licitações inline.
+  handle('produtos:buscar', (filtros: FiltrosBusca) => buscarProdutos(db, filtros ?? {}))
+
+  handle('painel:resumo', () => resumoPainel(db))
+  handle('fornecedores:lista', () => listaFornecedores(db))
+  handle('filtros:opcoes', () => opcoesFiltro(db))
 
   handle('chat:perguntar', async (mensagens: MensagemChat[]) => {
     const cfg = obterConfig()

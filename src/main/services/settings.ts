@@ -26,7 +26,8 @@ function normalizar(lida: Partial<ConfigApp>): ConfigApp {
       typeof lida.groqModel === 'string' && lida.groqModel.trim() ? lida.groqModel : MODELO_PADRAO,
     pastaSync: typeof lida.pastaSync === 'string' ? lida.pastaSync : '',
     deviceId: typeof lida.deviceId === 'string' && lida.deviceId ? lida.deviceId : randomUUID(),
-    tutorialConcluido: lida.tutorialConcluido === true
+    tutorialConcluido: lida.tutorialConcluido === true,
+    novidadesVersao: typeof lida.novidadesVersao === 'string' ? lida.novidadesVersao : ''
   }
 }
 
@@ -52,7 +53,8 @@ export function salvarConfig(parcial: Partial<ConfigApp>): void {
     groqModel: (parcial.groqModel ?? atual.groqModel).trim() || MODELO_PADRAO,
     pastaSync: (parcial.pastaSync ?? atual.pastaSync).trim(),
     deviceId: atual.deviceId,
-    tutorialConcluido: parcial.tutorialConcluido ?? atual.tutorialConcluido
+    tutorialConcluido: parcial.tutorialConcluido ?? atual.tutorialConcluido,
+    novidadesVersao: parcial.novidadesVersao ?? atual.novidadesVersao
   }
   writeFileSync(caminhoConfig, JSON.stringify(merge, null, 2))
 }

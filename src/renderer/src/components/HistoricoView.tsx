@@ -29,6 +29,19 @@ export function HistoricoView({
         <StatCard rotulo="Registros" valor={`${stats.registros} em ${stats.mapas} mapa(s)`} />
       </div>
 
+      {stats.minimo != null && (
+        <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-sm">
+          <span className="font-semibold text-violet-900">🎯 Para ganhar:</span>{' '}
+          <span className="text-violet-800">
+            cote até <strong>{fmtBRL(stats.minimo)}</strong> (menor preço já visto)
+            {stats.precoVencedorMedio != null && (
+              <> — vencedores saíram, em média, por <strong>{fmtBRL(stats.precoVencedorMedio)}</strong></>
+            )}
+            .
+          </span>
+        </div>
+      )}
+
       {(stats.vencedorFrequente || stats.ultimaData) && (
         <p className="text-sm text-zinc-600">
           {stats.vencedorFrequente && (
