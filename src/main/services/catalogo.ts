@@ -1,6 +1,7 @@
 import type { DB } from '../db'
-import type { Alias, ItemCanonico, ItemComAliases } from '../../shared/types'
+import type { Alias, ItemCanonico, ItemComAliases, Sugestao } from '../../shared/types'
 import { normalizar } from './normalize'
+import { matchTermo } from './matcher'
 
 export function listarCatalogo(db: DB): ItemComAliases[] {
   const itens = db
@@ -74,4 +75,49 @@ export function adicionarAlias(db: DB, itemId: number, alias: string, origem: st
 
 export function removerAlias(db: DB, aliasId: number): void {
   db.prepare(`DELETE FROM itens_aliases WHERE id = ?`).run(aliasId)
+}
+
+/**
+ * Mescla itens de `origem` no item `destino`: move as ofertas, copia nomes/apelidos como
+ * apelidos do destino (p/ reconhecer no futuro) e apaga os itens de origem. Idempotente e
+ * transacional. Retorna quantas ofertas moveu e quantos itens removeu.
+ */
+export function mesclarItens(
+  db: DB,
+  origem: number[],
+  destino: number
+): { ofertasMovidas: number; itensRemovidos: number } {
+  const orig = [...new Set(origem)].filter((id) => id !== destino)
+  if (orig.length === 0) return { ofertasMovidas: 0, itensRemovidos: 0 }
+
+  const tx = db.transaction(() => {
+    const ph = orig.map(() => '?').join(',')
+    // nomes e apelidos dos itens de origem viram apelidos do destino (dedupe automático)
+    const nomes = db
+      .prepare(`SELECT nome FROM itens_canonicos WHERE id IN (${ph})`)
+      .all(...orig) as { nome: string }[]
+    for (const { nome } of nomes) adicionarAlias(db, destino, nome, 'merge')
+    const aliases = db
+      .prepare(`SELECT alias, origem FROM itens_aliases WHERE item_canonico_id IN (${ph})`)
+      .all(...orig) as { alias: string; origem: string | null }[]
+    for (const a of aliases) adicionarAlias(db, destino, a.alias, a.origem ?? 'merge')
+
+    const r = db
+      .prepare(`UPDATE ofertas SET item_canonico_id = ? WHERE item_canonico_id IN (${ph})`)
+      .run(destino, ...orig)
+    db.prepare(`DELETE FROM itens_canonicos WHERE id IN (${ph})`).run(...orig)
+    return { ofertasMovidas: r.changes, itensRemovidos: orig.length }
+  })
+  return tx()
+}
+
+/** Sugere itens do catálogo parecidos com `itemId` (candidatos a mesclar). */
+export function itensParecidos(db: DB, itemId: number, limite = 8): Sugestao[] {
+  const item = db.prepare(`SELECT nome FROM itens_canonicos WHERE id = ?`).get(itemId) as
+    | { nome: string }
+    | undefined
+  if (!item) return []
+  return matchTermo(db, item.nome, limite + 1)
+    .filter((c) => c.itemId !== itemId)
+    .slice(0, limite)
 }

@@ -11,7 +11,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import ExcelJS from 'exceljs'
 import { openDb } from '../src/main/db'
-import { criarItem, adicionarAlias, listarCatalogo } from '../src/main/services/catalogo'
+import { criarItem, adicionarAlias, listarCatalogo, mesclarItens, itensParecidos } from '../src/main/services/catalogo'
+import { gerarRelatorio } from '../src/main/services/relatorio'
 import { gerarModelo } from '../src/main/services/template'
 import { parseArquivo, aplicarMatches, confirmarImportacao, parseNumero } from '../src/main/services/importer'
 import { exportarMapa, exportarTodos, listarPendentes, importarPendentes } from '../src/main/services/sync'
@@ -143,6 +144,19 @@ try {
   check('painel gasto por órgão', painel.gastoPorOrgao.some((g) => g.orgao === 'E.E. América'), painel.gastoPorOrgao)
   const ops = opcoesFiltro(db)
   check('opções de filtro', ops.fornecedores.length >= 2 && ops.orgaos.includes('E.E. América'), ops)
+
+  // --- merge de itens + relatório Excel --------------------------------------
+  const dup = criarItem(db, { nome: 'Papel Sulfite A4 (duplicado)', categoria: null, unidade: null })
+  const antesCat = listarCatalogo(db).length
+  const rmerge = mesclarItens(db, [dup.id], papel.id)
+  check('merge remove o item de origem', rmerge.itensRemovidos === 1, rmerge)
+  check('merge: catálogo diminui em 1', listarCatalogo(db).length === antesCat - 1)
+  check('merge: item de origem some', !listarCatalogo(db).some((i) => i.id === dup.id))
+  check('merge é idempotente/sem alvo', mesclarItens(db, [papel.id], papel.id).itensRemovidos === 0)
+  check('itensParecidos não quebra', Array.isArray(itensParecidos(db, papel.id)))
+  const relPath = join(dir, 'relatorio.xlsx')
+  await gerarRelatorio(db, {}, relPath)
+  check('relatório xlsx gerado', existsSync(relPath))
 
   // --- sincronização entre PCs (Opção A: pasta compartilhada) -------------
   const pastaSync = join(dir, 'sync')

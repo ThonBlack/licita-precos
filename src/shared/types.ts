@@ -264,6 +264,9 @@ export interface Api {
   excluirItem(id: number): Promise<Resp<null>>
   adicionarAlias(itemId: number, alias: string): Promise<Resp<null>>
   removerAlias(aliasId: number): Promise<Resp<null>>
+  itensParecidos(itemId: number): Promise<Resp<Sugestao[]>>
+  mesclarItens(origem: number[], destino: number): Promise<Resp<{ ofertasMovidas: number; itensRemovidos: number }>>
+  exportarRelatorio(filtros: FiltrosBusca): Promise<Resp<{ caminho: string; itens: number } | null>>
   buscar(termo: string): Promise<Resp<ResultadoBusca>>
   buscarProdutos(filtros: FiltrosBusca): Promise<Resp<HistoricoItem[]>>
   painelResumo(): Promise<Resp<ResumoPainel>>

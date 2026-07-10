@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { LayoutDashboard, PartyPopper, Search, Target, Users, X } from 'lucide-react'
+import { Combine, FileDown, LayoutDashboard, PartyPopper, Search, Target, Users, X } from 'lucide-react'
 import { Button } from './ui'
 import type { Pagina } from '../App'
 
 /** Bump quando lançar novidades: se != do que está salvo no config, o modal reaparece. */
-export const NOVIDADES_VERSAO = 'v0.4'
+export const NOVIDADES_VERSAO = 'v0.4.1'
 
 const ITENS: { Icone: typeof Search; titulo: string; texto: ReactNode }[] = [
   {
@@ -39,6 +39,21 @@ const ITENS: { Icone: typeof Search; titulo: string; texto: ReactNode }[] = [
       <>
         Veja quem disputa e quem ganha: <strong>taxa de vitória</strong>, quantos itens cotou e ticket médio. Clique
         em um fornecedor para ver tudo que ele ofertou.
+      </>
+    )
+  },
+  {
+    Icone: FileDown,
+    titulo: 'Exportar Excel',
+    texto: <>Botão <strong>Excel</strong> na Busca gera uma planilha com o resumo por item + todos os lances (respeita os filtros).</>
+  },
+  {
+    Icone: Combine,
+    titulo: 'Juntar itens parecidos',
+    texto: (
+      <>
+        No Catálogo, <strong>“Juntar parecidos”</strong> une o mesmo produto escrito de formas diferentes — o histórico
+        vira um só e a busca fica limpa.
       </>
     )
   }

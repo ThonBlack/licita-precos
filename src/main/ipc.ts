@@ -19,9 +19,12 @@ import {
   atualizarItem,
   criarItem,
   excluirItem,
+  itensParecidos,
   listarCatalogo,
+  mesclarItens,
   removerAlias
 } from './services/catalogo'
+import { gerarRelatorio } from './services/relatorio'
 import { buscarProdutos, historicoItem } from './services/historico'
 import { listaFornecedores, opcoesFiltro, resumoPainel } from './services/analytics'
 import { LIMIAR_BUSCA, matchTermo } from './services/matcher'
@@ -152,6 +155,20 @@ export function registrarIpc(db: DB, dbPath: string): void {
   handle('catalogo:removerAlias', (aliasId: number) => {
     removerAlias(db, aliasId)
     return null
+  })
+  handle('catalogo:parecidos', (itemId: number) => itensParecidos(db, itemId))
+  handle('catalogo:mesclar', (origem: number[], destino: number) => mesclarItens(db, origem, destino))
+
+  handle('relatorio:exportar', async (filtros: FiltrosBusca) => {
+    const hoje = new Date().toISOString().slice(0, 10)
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Exportar relatório de preços',
+      defaultPath: `relatorio-precos-${hoje}.xlsx`,
+      filters: [{ name: 'Planilha Excel', extensions: ['xlsx'] }]
+    })
+    if (canceled || !filePath) return null
+    const itens = await gerarRelatorio(db, filtros ?? {}, filePath)
+    return { caminho: filePath, itens }
   })
 
   handle('busca:termo', (termo: string) => {

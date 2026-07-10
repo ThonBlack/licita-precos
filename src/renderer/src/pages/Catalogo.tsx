@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react'
-import type { HistoricoItem, ItemComAliases } from '../../../shared/types'
+import { Check, ChevronDown, ChevronRight, Combine, Pencil, Plus, Trash2, X } from 'lucide-react'
+import type { HistoricoItem, ItemComAliases, Sugestao } from '../../../shared/types'
 import { Alerta, Badge, Button, Card, Empty, Input, Spinner, cn } from '../components/ui'
+import { fmtPct } from '../lib/format'
 import { HistoricoView } from '../components/HistoricoView'
 
 export function Catalogo() {
@@ -143,6 +144,46 @@ function ItemCard({
     }
   }
 
+  const [mostrarMerge, setMostrarMerge] = useState(false)
+  const [parecidos, setParecidos] = useState<Sugestao[]>([])
+  const [selPar, setSelPar] = useState<Set<number>>(new Set())
+  const [carregandoPar, setCarregandoPar] = useState(false)
+  const [mesclando, setMesclando] = useState(false)
+
+  async function abrirMerge() {
+    const abrir = !mostrarMerge
+    setMostrarMerge(abrir)
+    if (abrir) {
+      setCarregandoPar(true)
+      setSelPar(new Set())
+      const res = await window.api.itensParecidos(item.id)
+      setCarregandoPar(false)
+      if (res.ok) setParecidos(res.data)
+      else onErro(res.error)
+    }
+  }
+  function togglePar(id: number) {
+    setSelPar((s) => {
+      const n = new Set(s)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+  }
+  async function mesclar() {
+    if (selPar.size === 0) return
+    if (!confirm(`Juntar ${selPar.size} item(ns) em "${item.nome}"? As ofertas e apelidos vão para este item; os outros são removidos.`))
+      return
+    setMesclando(true)
+    const res = await window.api.mesclarItens([...selPar], item.id)
+    setMesclando(false)
+    if (!res.ok) {
+      onErro(res.error)
+      return
+    }
+    setMostrarMerge(false)
+    await onMudou()
+  }
+
   async function salvarEdicao() {
     const res = await window.api.atualizarItem(item.id, {
       nome: dados.nome,
@@ -266,8 +307,8 @@ function ItemCard({
         </div>
       </div>
 
-      {item.totalOfertas > 0 && (
-        <div className="mt-3 border-t border-zinc-100 pt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-zinc-100 pt-3">
+        {item.totalOfertas > 0 && (
           <button
             className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900"
             onClick={alternarLances}
@@ -275,10 +316,51 @@ function ItemCard({
             {mostrarLances ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             Lances já dados ({item.totalOfertas})
           </button>
-          {mostrarLances && (
-            <div className="mt-3">
-              {carregandoHist || !hist ? <Spinner /> : <HistoricoView historico={hist} ocultarCabecalho />}
-            </div>
+        )}
+        <button
+          className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900"
+          onClick={abrirMerge}
+        >
+          <Combine className="h-4 w-4" /> Juntar parecidos
+        </button>
+      </div>
+
+      {mostrarLances && (
+        <div className="mt-3">
+          {carregandoHist || !hist ? <Spinner /> : <HistoricoView historico={hist} ocultarCabecalho />}
+        </div>
+      )}
+
+      {mostrarMerge && (
+        <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+          <p className="mb-2 text-sm text-zinc-600">
+            Marque os itens que são <strong>o mesmo produto</strong> que “{item.nome}”. Eles são juntados aqui
+            (ofertas e apelidos migram; nome e categoria deste item ficam).
+          </p>
+          {carregandoPar ? (
+            <Spinner />
+          ) : parecidos.length === 0 ? (
+            <Empty>Nenhum item parecido encontrado.</Empty>
+          ) : (
+            <>
+              <div className="space-y-1">
+                {parecidos.map((p) => (
+                  <label
+                    key={p.itemId}
+                    className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-white"
+                  >
+                    <input type="checkbox" checked={selPar.has(p.itemId)} onChange={() => togglePar(p.itemId)} />
+                    <span className="min-w-0 flex-1 truncate">{p.itemNome}</span>
+                    <Badge tone="gray">{fmtPct(p.similaridade)}</Badge>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-2 flex justify-end">
+                <Button size="sm" onClick={mesclar} disabled={mesclando || selPar.size === 0}>
+                  {mesclando ? <Spinner /> : <Combine className="h-4 w-4" />} Juntar {selPar.size} aqui
+                </Button>
+              </div>
+            </>
           )}
         </div>
       )}

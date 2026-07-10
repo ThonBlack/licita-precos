@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { ChevronDown, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import type { FiltrosBusca, HistoricoItem, OpcoesFiltro } from '../../../shared/types'
 import { fmtBRL, fmtData } from '../lib/format'
 import { Alerta, Button, Card, Empty, Input, Select, Spinner } from '../components/ui'
@@ -17,6 +17,32 @@ export function Buscar({ filtroInicial }: { filtroInicial?: FiltrosBusca | null 
   const [itens, setItens] = useState<HistoricoItem[] | null>(null)
   const [aberto, setAberto] = useState<number | null>(null)
   const [descricao, setDescricao] = useState('')
+  const [exportando, setExportando] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  function filtrosAtuais(): FiltrosBusca {
+    return {
+      termo: termo.trim() || undefined,
+      fornecedor: filtros.fornecedor || undefined,
+      orgao: filtros.orgao || undefined,
+      categoria: filtros.categoria || undefined,
+      de: filtros.de || undefined,
+      ate: filtros.ate || undefined
+    }
+  }
+
+  async function exportar() {
+    setExportando(true)
+    setErro(null)
+    setMsg(null)
+    const res = await window.api.exportarRelatorio(filtrosAtuais())
+    setExportando(false)
+    if (!res.ok) {
+      setErro(res.error)
+      return
+    }
+    if (res.data) setMsg(`Relatório salvo (${res.data.itens} itens): ${res.data.caminho}`)
+  }
 
   useEffect(() => {
     void window.api.opcoesFiltro().then((r) => r.ok && setOpcoes(r.data))
@@ -79,7 +105,12 @@ export function Buscar({ filtroInicial }: { filtroInicial?: FiltrosBusca | null 
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Buscar histórico de preço</h1>
-        {itens && <span className="text-sm text-zinc-500">{itens.length} produto(s)</span>}
+        <div className="flex items-center gap-3">
+          {itens && <span className="text-sm text-zinc-500">{itens.length} produto(s)</span>}
+          <Button size="sm" variant="outline" onClick={exportar} disabled={exportando} title="Exporta os resultados atuais (respeita os filtros)">
+            {exportando ? <Spinner /> : <FileDown className="h-4 w-4" />} Excel
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-2">
@@ -141,6 +172,7 @@ export function Buscar({ filtroInicial }: { filtroInicial?: FiltrosBusca | null 
       )}
 
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
+      {msg && <Alerta tipo="ok">{msg}</Alerta>}
       {descricao && itens && (
         <p className="text-xs text-zinc-500">Resultados para {descricao}</p>
       )}
