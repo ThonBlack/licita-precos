@@ -7,6 +7,7 @@ import {
   ExternalLink,
   FileSpreadsheet,
   Paperclip,
+  Plus,
   RefreshCw,
   Sparkles,
   Trash2
@@ -52,6 +53,7 @@ export function Importar() {
   const [sessao, setSessao] = useState<SessaoMapa | null>(null)
   const [preparando, setPreparando] = useState(false)
   const [sincronizando, setSincronizando] = useState(false)
+  const [categorizando, setCategorizando] = useState(false)
 
   async function copiarPromptAntigravity() {
     await navigator.clipboard.writeText(
@@ -204,6 +206,65 @@ export function Importar() {
     [decisoes]
   )
 
+  /** Ações em massa sobre as linhas ainda pendentes (não reconhecidas no catálogo). */
+  function aplicarNosPendentes(fn: (l: LinhaImportacao, d: DecisaoLinha) => DecisaoLinha) {
+    if (!parseada) return
+    setDecisoes((atual) => {
+      const novo = { ...atual }
+      for (const l of parseada.linhas) {
+        const d = novo[l.linha]
+        if (d?.acao === 'pendente') novo[l.linha] = fn(l, d)
+      }
+      return novo
+    })
+  }
+
+  function criarTodosPendentes() {
+    aplicarNosPendentes((l, d) => ({
+      ...d,
+      acao: 'criar',
+      novoItem: d.novoItem ?? { nome: l.descricao, categoria: null, unidade: l.unidade },
+      salvarAlias: true
+    }))
+  }
+
+  function pularTodosPendentes() {
+    aplicarNosPendentes((_l, d) => ({ ...d, acao: 'pular' }))
+  }
+
+  const criandoCount = useMemo(
+    () => Object.values(decisoes).filter((d) => d.acao === 'criar').length,
+    [decisoes]
+  )
+
+  /** Pede à IA (Groq) uma categoria para cada item que será CRIADO e preenche o campo Categoria. */
+  async function categorizarComIA() {
+    if (!parseada) return
+    const alvos = parseada.linhas.filter((l) => decisoes[l.linha]?.acao === 'criar')
+    if (alvos.length === 0) return
+    setCategorizando(true)
+    setErro(null)
+    const res = await window.api.categorizarItens(
+      alvos.map((l) => decisoes[l.linha]?.novoItem?.nome || l.descricao)
+    )
+    setCategorizando(false)
+    if (!res.ok) {
+      setErro(res.error)
+      return
+    }
+    const cats = res.data
+    setDecisoes((atual) => {
+      const novo = { ...atual }
+      alvos.forEach((l, i) => {
+        const d = novo[l.linha]
+        if (d?.acao === 'criar' && d.novoItem) {
+          novo[l.linha] = { ...d, novoItem: { ...d.novoItem, categoria: cats[i] ?? d.novoItem.categoria } }
+        }
+      })
+      return novo
+    })
+  }
+
   async function salvar() {
     if (!parseada) return
     setCarregando(true)
@@ -290,6 +351,28 @@ export function Importar() {
             </div>
           </div>
         </Card>
+
+        {(pendentes > 0 || criandoCount > 0) && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+            <span className="text-sm font-medium text-zinc-600">Ações em massa:</span>
+            {pendentes > 0 && (
+              <>
+                <Button size="sm" variant="outline" onClick={criarTodosPendentes}>
+                  <Plus className="h-4 w-4" /> Criar os {pendentes} pendentes como itens novos
+                </Button>
+                <Button size="sm" variant="ghost" onClick={pularTodosPendentes}>
+                  Pular os {pendentes}
+                </Button>
+              </>
+            )}
+            {criandoCount > 0 && (
+              <Button size="sm" variant="outline" onClick={categorizarComIA} disabled={categorizando}>
+                {categorizando ? <Spinner /> : <Sparkles className="h-4 w-4 text-violet-500" />} Categorizar{' '}
+                {criandoCount} com IA
+              </Button>
+            )}
+          </div>
+        )}
 
         <div className="space-y-3">
           {parseada.linhas.map((l) => (

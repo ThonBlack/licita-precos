@@ -21,6 +21,7 @@ const api: Api = {
   buscar: invoke('busca:termo'),
   historicoItem: invoke('historico:item'),
   perguntar: invoke('chat:perguntar'),
+  categorizarItens: invoke('ia:categorizar'),
   exportarBackup: invoke('backup:exportar'),
   obterConfig: invoke('config:obter'),
   salvarConfig: invoke('config:salvar'),

@@ -24,6 +24,7 @@ import {
 import { historicoItem } from './services/historico'
 import { LIMIAR_BUSCA, matchTermo } from './services/matcher'
 import { perguntar } from './services/chat'
+import { categorizar } from './services/categorizar'
 import { exportarBackup } from './services/backup'
 import { obterConfig, salvarConfig } from './services/settings'
 import { exportarMapa, exportarTodos, importarPendentes, listarPendentes } from './services/sync'
@@ -150,6 +151,11 @@ export function registrarIpc(db: DB, dbPath: string): void {
   handle('chat:perguntar', async (mensagens: MensagemChat[]) => {
     const cfg = obterConfig()
     return perguntar(db, cfg.groqApiKey, cfg.groqModel, mensagens)
+  })
+
+  handle('ia:categorizar', async (descricoes: string[]) => {
+    const cfg = obterConfig()
+    return categorizar(cfg.groqApiKey, cfg.groqModel, descricoes)
   })
 
   handle('backup:exportar', async () => {

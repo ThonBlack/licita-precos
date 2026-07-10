@@ -234,6 +234,7 @@ export interface Api {
   buscar(termo: string): Promise<Resp<ResultadoBusca>>
   historicoItem(itemId: number): Promise<Resp<HistoricoItem>>
   perguntar(mensagens: MensagemChat[]): Promise<Resp<string>>
+  categorizarItens(descricoes: string[]): Promise<Resp<string[]>>
   exportarBackup(): Promise<Resp<{ caminho: string } | null>>
   obterConfig(): Promise<Resp<ConfigApp & InfoBanco>>
   salvarConfig(cfg: Partial<ConfigApp>): Promise<Resp<null>>
