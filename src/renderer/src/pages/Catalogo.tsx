@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
-import type { ItemComAliases } from '../../../shared/types'
-import { Alerta, Badge, Button, Card, Empty, Input, cn } from '../components/ui'
+import { Check, ChevronDown, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react'
+import type { HistoricoItem, ItemComAliases } from '../../../shared/types'
+import { Alerta, Badge, Button, Card, Empty, Input, Spinner, cn } from '../components/ui'
+import { HistoricoView } from '../components/HistoricoView'
 
 export function Catalogo() {
   const [itens, setItens] = useState<ItemComAliases[]>([])
@@ -126,6 +127,21 @@ function ItemCard({
     unidade: item.unidade_padrao ?? ''
   })
   const [novoAlias, setNovoAlias] = useState('')
+  const [mostrarLances, setMostrarLances] = useState(false)
+  const [hist, setHist] = useState<HistoricoItem | null>(null)
+  const [carregandoHist, setCarregandoHist] = useState(false)
+
+  async function alternarLances() {
+    const abrir = !mostrarLances
+    setMostrarLances(abrir)
+    if (abrir && !hist) {
+      setCarregandoHist(true)
+      const res = await window.api.historicoItem(item.id)
+      setCarregandoHist(false)
+      if (res.ok) setHist(res.data)
+      else onErro(res.error)
+    }
+  }
 
   async function salvarEdicao() {
     const res = await window.api.atualizarItem(item.id, {
@@ -249,6 +265,23 @@ function ItemCard({
           )}
         </div>
       </div>
+
+      {item.totalOfertas > 0 && (
+        <div className="mt-3 border-t border-zinc-100 pt-3">
+          <button
+            className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900"
+            onClick={alternarLances}
+          >
+            {mostrarLances ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            Lances já dados ({item.totalOfertas})
+          </button>
+          {mostrarLances && (
+            <div className="mt-3">
+              {carregandoHist || !hist ? <Spinner /> : <HistoricoView historico={hist} ocultarCabecalho />}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

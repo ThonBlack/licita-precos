@@ -232,6 +232,7 @@ export interface Api {
   adicionarAlias(itemId: number, alias: string): Promise<Resp<null>>
   removerAlias(aliasId: number): Promise<Resp<null>>
   buscar(termo: string): Promise<Resp<ResultadoBusca>>
+  buscarLista(termo: string): Promise<Resp<HistoricoItem[]>>
   historicoItem(itemId: number): Promise<Resp<HistoricoItem>>
   perguntar(mensagens: MensagemChat[]): Promise<Resp<string>>
   categorizarItens(descricoes: string[]): Promise<Resp<string[]>>

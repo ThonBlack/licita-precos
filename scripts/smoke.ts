@@ -146,6 +146,20 @@ try {
   const ofertasDb2 = (db2.prepare('SELECT COUNT(*) AS n FROM ofertas').get() as { n: number }).n
   check('ofertas gravadas no outro PC', ofertasDb2 === 4, ofertasDb2)
 
+  // sync popula o CATÁLOGO do outro PC (senão nada aparece em Busca/Catálogo)
+  const catDb2 = listarCatalogo(db2)
+  check('outro PC criou 2 itens no catálogo via sync', rsync.itensCriados === 2, rsync.itensCriados)
+  check(
+    'catálogo do outro PC recebeu os nomes canônicos',
+    catDb2.length === 2 && catDb2.some((c) => c.nome === 'Papel Sulfite A4'),
+    catDb2.map((c) => c.nome)
+  )
+  check(
+    'busca no outro PC acha o item sincronizado',
+    matchTermo(db2, 'papel sulfite', 5).some((c) => c.itemNome === 'Papel Sulfite A4'),
+    matchTermo(db2, 'papel sulfite', 5)
+  )
+
   // idempotência: reimportar a mesma pasta não duplica
   check('sem pendentes após importar', listarPendentes(db2, pastaSync).length === 0)
   const rsync2 = importarPendentes(db2, pastaSync)
@@ -173,7 +187,7 @@ try {
   check('prompt inclui os arquivos do mapa', promptAG.includes('foto1.jpg') && promptAG.includes('nota.pdf'))
 
   // --- exportarTodos (push do botão "Sincronizar") ------------------------
-  check('exportarTodos não reenvia o que já está', exportarTodos(db, pastaSync, 'device-pc1') === 0)
+  check('exportarTodos republica os mapas locais', exportarTodos(db, pastaSync, 'device-pc1') === 1)
   const pastaSync3 = join(dir, 'sync3')
   check('exportarTodos envia todos para pasta nova', exportarTodos(db, pastaSync3, 'device-pc1') === 1)
   check('mapa gravado na pasta nova', existsSync(join(pastaSync3, `mapa-${resumo.uuid}.json`)))

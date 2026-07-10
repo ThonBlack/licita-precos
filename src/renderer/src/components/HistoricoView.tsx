@@ -3,16 +3,24 @@ import { fmtBRL, fmtData, fmtNum } from '../lib/format'
 import { Badge, Empty, StatCard } from './ui'
 
 /** Bloco reutilizável: estatísticas + tabela do histórico de um item. */
-export function HistoricoView({ historico }: { historico: HistoricoItem }) {
+export function HistoricoView({
+  historico,
+  ocultarCabecalho = false
+}: {
+  historico: HistoricoItem
+  ocultarCabecalho?: boolean
+}) {
   const { item, stats, registros } = historico
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">{item.nome}</h2>
-        <p className="text-sm text-zinc-500">
-          {[item.categoria, item.unidade_padrao].filter(Boolean).join(' · ') || 'sem categoria'}
-        </p>
-      </div>
+      {!ocultarCabecalho && (
+        <div>
+          <h2 className="text-lg font-semibold">{item.nome}</h2>
+          <p className="text-sm text-zinc-500">
+            {[item.categoria, item.unidade_padrao].filter(Boolean).join(' · ') || 'sem categoria'}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard rotulo="Mínimo" valor={fmtBRL(stats.minimo)} />

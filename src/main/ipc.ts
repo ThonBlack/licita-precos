@@ -148,6 +148,18 @@ export function registrarIpc(db: DB, dbPath: string): void {
 
   handle('historico:item', (itemId: number) => historicoItem(db, itemId))
 
+  // Busca-lista (Produtos e preços): vazio = todos os itens; com termo = todos que casam.
+  // Cada item vem com estatísticas + histórico, p/ mostrar preços e licitações inline.
+  handle('busca:lista', (termo: string) => {
+    const t = (termo ?? '').trim()
+    const ids = t
+      ? matchTermo(db, t, 100).map((c) => c.itemId)
+      : (db.prepare(`SELECT id FROM itens_canonicos ORDER BY nome COLLATE NOCASE`).all() as { id: number }[]).map(
+          (r) => r.id
+        )
+    return ids.map((id) => historicoItem(db, id))
+  })
+
   handle('chat:perguntar', async (mensagens: MensagemChat[]) => {
     const cfg = obterConfig()
     return perguntar(db, cfg.groqApiKey, cfg.groqModel, mensagens)

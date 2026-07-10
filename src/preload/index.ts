@@ -19,6 +19,7 @@ const api: Api = {
   adicionarAlias: invoke('catalogo:addAlias'),
   removerAlias: invoke('catalogo:removerAlias'),
   buscar: invoke('busca:termo'),
+  buscarLista: invoke('busca:lista'),
   historicoItem: invoke('historico:item'),
   perguntar: invoke('chat:perguntar'),
   categorizarItens: invoke('ia:categorizar'),

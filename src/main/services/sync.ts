@@ -4,7 +4,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { DB } from '../db'
-import type { LinhaImportacao, PendenteSync, ResumoSync } from '../../shared/types'
+import type { DecisaoLinha, LinhaImportacao, PendenteSync, ResumoSync } from '../../shared/types'
 import { aplicarMatches, confirmarImportacao } from './importer'
 
 interface PropostaPacote {
@@ -14,12 +14,20 @@ interface PropostaPacote {
   venceu: boolean
 }
 
+interface ItemCanonicoPacote {
+  nome: string
+  categoria: string | null
+  unidade: string | null
+}
+
 interface ItemPacote {
   numeroItem: string | null
   descricao: string
   quantidade: number | null
   unidade: string | null
   vencedorInformado: string | null
+  // item canônico ao qual a oferta estava ligada no PC de origem (p/ o outro PC recriar o catálogo)
+  itemCanonico: ItemCanonicoPacote | null
   propostas: PropostaPacote[]
 }
 
@@ -43,6 +51,9 @@ interface OfertaRow {
   valor_unitario: number | null
   valor_total: number | null
   venceu: number
+  item_nome: string | null
+  item_categoria: string | null
+  item_unidade: string | null
 }
 
 interface MapaRow {
@@ -68,8 +79,10 @@ function montarPacote(db: DB, mapaId: number, device: string): PacoteMapa {
 
   const ofertas = db
     .prepare(
-      `SELECT descricao_original, quantidade, unidade, proponente, valor_unitario, valor_total, venceu
-       FROM ofertas WHERE mapa_id = ? ORDER BY id`
+      `SELECT o.descricao_original, o.quantidade, o.unidade, o.proponente, o.valor_unitario, o.valor_total, o.venceu,
+              ic.nome AS item_nome, ic.categoria AS item_categoria, ic.unidade_padrao AS item_unidade
+       FROM ofertas o LEFT JOIN itens_canonicos ic ON ic.id = o.item_canonico_id
+       WHERE o.mapa_id = ? ORDER BY o.id`
     )
     .all(mapaId) as OfertaRow[]
 
@@ -84,6 +97,9 @@ function montarPacote(db: DB, mapaId: number, device: string): PacoteMapa {
         quantidade: o.quantidade,
         unidade: o.unidade,
         vencedorInformado: null,
+        itemCanonico: o.item_nome
+          ? { nome: o.item_nome, categoria: o.item_categoria, unidade: o.item_unidade }
+          : null,
         propostas: []
       }
       grupos.set(chave, item)
@@ -121,20 +137,18 @@ export function exportarMapa(db: DB, pastaSync: string, mapaId: number, device: 
   renameSync(tmp, destino)
 }
 
-/** Envia todos os mapas locais que ainda não estão na pasta. Retorna quantos foram enviados. */
+/**
+ * Publica (reescreve) todos os mapas locais na pasta. Sempre sobrescreve para propagar
+ * atualizações do formato do pacote (ex: nome/categoria do item canônico). Retorna quantos.
+ */
 export function exportarTodos(db: DB, pastaSync: string, device: string): number {
   if (!pastaSync) return 0
   if (!existsSync(pastaSync)) mkdirSync(pastaSync, { recursive: true })
   const mapas = db
     .prepare(`SELECT id, uuid FROM mapas WHERE uuid IS NOT NULL`)
     .all() as { id: number; uuid: string }[]
-  let enviados = 0
-  for (const m of mapas) {
-    if (existsSync(join(pastaSync, `mapa-${m.uuid}.json`))) continue
-    exportarMapa(db, pastaSync, m.id, device)
-    enviados++
-  }
-  return enviados
+  for (const m of mapas) exportarMapa(db, pastaSync, m.id, device)
+  return mapas.length
 }
 
 // ---------------------------------------------------------------------------
@@ -217,6 +231,26 @@ export function importarPendentes(db: DB, pastaSync: string): ResumoSync {
         linhas: pacoteParaLinhas(pac),
         avisos: []
       })
+      // Decisões automáticas: se bate com o catálogo local, associa; senão CRIA o item
+      // (usando o nome/categoria vindos do PC de origem, ou a descrição) — assim o outro
+      // PC constrói o próprio catálogo e os itens aparecem em Busca/Catálogo.
+      const decisoes: DecisaoLinha[] = parseada.linhas.map((l, i) => {
+        if (l.match.itemId != null && (l.match.tipo === 'exato' || l.match.tipo === 'forte')) {
+          return { linha: l.linha, acao: 'associar', itemId: l.match.itemId, salvarAlias: l.match.tipo !== 'exato' }
+        }
+        const src = pac.itens[i]?.itemCanonico ?? null
+        const nome = (src?.nome || l.descricao).trim()
+        const existente = acharItemPorNome(db, nome)
+        if (existente != null) {
+          return { linha: l.linha, acao: 'associar', itemId: existente, salvarAlias: true }
+        }
+        return {
+          linha: l.linha,
+          acao: 'criar',
+          novoItem: { nome, categoria: src?.categoria ?? null, unidade: src?.unidade ?? l.unidade ?? null },
+          salvarAlias: true
+        }
+      })
       const r = confirmarImportacao(
         db,
         {
@@ -227,7 +261,7 @@ export function importarPendentes(db: DB, pastaSync: string): ResumoSync {
           uuid: pac.uuid
         },
         parseada.linhas,
-        []
+        decisoes
       )
       locais.add(pac.uuid)
       resumo.mapasImportados++
@@ -238,4 +272,13 @@ export function importarPendentes(db: DB, pastaSync: string): ResumoSync {
     }
   }
   return resumo
+}
+
+/** Acha um item canônico local pelo nome (case-insensitive) para não duplicar na sincronização. */
+function acharItemPorNome(db: DB, nome: string): number | null {
+  if (!nome) return null
+  const row = db.prepare(`SELECT id FROM itens_canonicos WHERE lower(nome) = lower(?) LIMIT 1`).get(nome) as
+    | { id: number }
+    | undefined
+  return row?.id ?? null
 }
