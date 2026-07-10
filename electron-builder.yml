@@ -1,5 +1,8 @@
 appId: com.thonblack.licitaprecos
 productName: LicitaPrecos
+# Nome sem espaços: evita o GitHub renomear "LicitaPrecos Setup X" (espaços) para pontos
+# enquanto o latest.yml usa hífens → auto-update 404. Com hífens, arquivo/latest.yml/asset batem.
+artifactName: ${productName}-Setup-${version}.${ext}
 directories:
   output: release
 files:
