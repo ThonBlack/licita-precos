@@ -14,7 +14,10 @@ import { openDb } from '../src/main/db'
 import { criarItem, adicionarAlias, listarCatalogo } from '../src/main/services/catalogo'
 import { gerarModelo } from '../src/main/services/template'
 import { parseArquivo, aplicarMatches, confirmarImportacao, parseNumero } from '../src/main/services/importer'
-import { exportarMapa, listarPendentes, importarPendentes } from '../src/main/services/sync'
+import { exportarMapa, exportarTodos, listarPendentes, importarPendentes } from '../src/main/services/sync'
+import { backupAutomatico } from '../src/main/services/backup'
+import { detectarPastaDrive, NOME_PASTA_DRIVE } from '../src/main/services/drive'
+import { montarPromptAntigravity } from '../src/shared/prompts'
 import { matchTermo } from '../src/main/services/matcher'
 import { historicoItem } from '../src/main/services/historico'
 import { normalizar } from '../src/main/services/normalize'
@@ -149,6 +152,31 @@ try {
   check('reimportação não duplica', rsync2.mapasImportados === 0, rsync2)
   const totalMapasDb2 = (db2.prepare('SELECT COUNT(*) AS n FROM mapas').get() as { n: number }).n
   check('outro PC tem exatamente 1 mapa', totalMapasDb2 === 1, totalMapasDb2)
+
+  // --- auto-detecção da pasta do Google Drive -----------------------------
+  const driveRaiz = join(dir, 'DriveFake', 'Meu Drive')
+  mkdirSync(join(driveRaiz, NOME_PASTA_DRIVE), { recursive: true })
+  check(
+    'detecta a pasta do Drive por nome',
+    detectarPastaDrive([driveRaiz]) === join(driveRaiz, NOME_PASTA_DRIVE)
+  )
+  check('sem a pasta do Drive → null', detectarPastaDrive([join(dir, 'DriveFake', 'Inexistente')]) === null)
+
+  // --- backup automático do banco -----------------------------------------
+  const bk = backupAutomatico(db, join(dir, 'teste.db'), dir)
+  check('backup automático criado', !!bk && existsSync(bk), bk)
+  check('backup não duplica em <12h', backupAutomatico(db, join(dir, 'teste.db'), dir) === null)
+
+  // --- prompt do Antigravity com caminhos reais ---------------------------
+  const promptAG = montarPromptAntigravity('C:/trab/mapa-modelo.xlsx', ['C:/trab/foto1.jpg', 'C:/trab/nota.pdf'])
+  check('prompt inclui o caminho do xlsx', promptAG.includes('C:/trab/mapa-modelo.xlsx'))
+  check('prompt inclui os arquivos do mapa', promptAG.includes('foto1.jpg') && promptAG.includes('nota.pdf'))
+
+  // --- exportarTodos (push do botão "Sincronizar") ------------------------
+  check('exportarTodos não reenvia o que já está', exportarTodos(db, pastaSync, 'device-pc1') === 0)
+  const pastaSync3 = join(dir, 'sync3')
+  check('exportarTodos envia todos para pasta nova', exportarTodos(db, pastaSync3, 'device-pc1') === 1)
+  check('mapa gravado na pasta nova', existsSync(join(pastaSync3, `mapa-${resumo.uuid}.json`)))
 
   db2.close()
   db.close()

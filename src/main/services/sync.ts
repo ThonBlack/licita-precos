@@ -121,6 +121,22 @@ export function exportarMapa(db: DB, pastaSync: string, mapaId: number, device: 
   renameSync(tmp, destino)
 }
 
+/** Envia todos os mapas locais que ainda não estão na pasta. Retorna quantos foram enviados. */
+export function exportarTodos(db: DB, pastaSync: string, device: string): number {
+  if (!pastaSync) return 0
+  if (!existsSync(pastaSync)) mkdirSync(pastaSync, { recursive: true })
+  const mapas = db
+    .prepare(`SELECT id, uuid FROM mapas WHERE uuid IS NOT NULL`)
+    .all() as { id: number; uuid: string }[]
+  let enviados = 0
+  for (const m of mapas) {
+    if (existsSync(join(pastaSync, `mapa-${m.uuid}.json`))) continue
+    exportarMapa(db, pastaSync, m.id, device)
+    enviados++
+  }
+  return enviados
+}
+
 // ---------------------------------------------------------------------------
 // Entrada (inbox): lê a pasta e importa mapas que ainda não existem localmente
 // ---------------------------------------------------------------------------

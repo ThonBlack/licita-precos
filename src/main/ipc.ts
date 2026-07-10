@@ -1,6 +1,6 @@
 import { dialog, ipcMain, shell } from 'electron'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import type { DB } from './db'
 import type {
   ConfigApp,
@@ -26,7 +26,8 @@ import { LIMIAR_BUSCA, matchTermo } from './services/matcher'
 import { perguntar } from './services/chat'
 import { exportarBackup } from './services/backup'
 import { obterConfig, salvarConfig } from './services/settings'
-import { exportarMapa, importarPendentes, listarPendentes } from './services/sync'
+import { exportarMapa, exportarTodos, importarPendentes, listarPendentes } from './services/sync'
+import { detectarPastaDrive } from './services/drive'
 import { instalarUpdateAgora, obterEstadoUpdate, verificarUpdateManual } from './updater'
 
 const ANTIGRAVITY_URL = 'https://antigravity.google/download'
@@ -54,6 +55,16 @@ function handle(canal: string, fn: (...args: never[]) => unknown): void {
 }
 
 export function registrarIpc(db: DB, dbPath: string): void {
+  const userDataDir = dirname(dbPath)
+
+  /** Cria uma pasta de trabalho nova (uma "sessão" de preenchimento) dentro do userData. */
+  function novaSessao(): string {
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    const dir = join(userDataDir, 'trabalho', stamp)
+    mkdirSync(join(dir, 'arquivos'), { recursive: true })
+    return dir
+  }
+
   handle('template:baixar', async () => {
     const { canceled, filePath } = await dialog.showSaveDialog({
       title: 'Salvar planilha modelo',
@@ -166,7 +177,7 @@ export function registrarIpc(db: DB, dbPath: string): void {
     }
   })
 
-  handle('config:salvar', (cfg: ConfigApp) => {
+  handle('config:salvar', (cfg: Partial<ConfigApp>) => {
     salvarConfig(cfg)
     return null
   })
@@ -214,6 +225,66 @@ export function registrarIpc(db: DB, dbPath: string): void {
   handle('sync:importar', () => {
     const cfg = obterConfig()
     return importarPendentes(db, cfg.pastaSync)
+  })
+
+  // Botão "Sincronizar": envia meus mapas que faltam + puxa os de outros PCs, num clique só.
+  handle('sync:sincronizar', () => {
+    const cfg = obterConfig()
+    if (!cfg.pastaSync) {
+      return { enviados: 0, mapasImportados: 0, ofertasCriadas: 0, itensCriados: 0, falhas: 0 }
+    }
+    const enviados = exportarTodos(db, cfg.pastaSync, cfg.deviceId)
+    const rec = importarPendentes(db, cfg.pastaSync)
+    return { enviados, ...rec }
+  })
+
+  // Acha sozinho a pasta "Licita Precos Mih" no Google Drive deste PC e a fixa como pasta de sync.
+  handle('sync:autoDetectar', () => {
+    const cfg = obterConfig()
+    if (cfg.pastaSync && existsSync(cfg.pastaSync)) return { pasta: cfg.pastaSync, detectada: false }
+    const achada = detectarPastaDrive()
+    if (achada) {
+      salvarConfig({ pastaSync: achada })
+      return { pasta: achada, detectada: true }
+    }
+    return { pasta: '', detectada: false }
+  })
+
+  // --- Fluxo "Preencher com IA (Antigravity)": planilha + arquivos numa pasta de trabalho ---
+  handle('mapa:preparar', async () => {
+    const pastaSessao = novaSessao()
+    const caminhoXlsx = join(pastaSessao, 'mapa-modelo.xlsx')
+    await gerarModelo(caminhoXlsx)
+    return { pastaSessao, caminhoXlsx, caminhosMapas: [] }
+  })
+
+  handle('mapa:adicionarArquivos', async (pastaSessao: string) => {
+    const destinoDir = join(pastaSessao, 'arquivos')
+    mkdirSync(destinoDir, { recursive: true })
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Selecionar fotos/PDFs do mapa (pode marcar vários)',
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Imagens e PDF', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'pdf'] },
+        { name: 'Todos os arquivos', extensions: ['*'] }
+      ]
+    })
+    if (!canceled) {
+      for (const src of filePaths) {
+        try {
+          copyFileSync(src, join(destinoDir, basename(src)))
+        } catch {
+          // arquivo inacessível: ignora, os demais seguem
+        }
+      }
+    }
+    // fonte da verdade: tudo que está na pasta de arquivos da sessão
+    return readdirSync(destinoDir).map((a) => join(destinoDir, a))
+  })
+
+  handle('mapa:importarSessao', async (caminhoXlsx: string) => {
+    const parseada = await parseArquivo(caminhoXlsx)
+    return aplicarMatches(db, parseada)
   })
 
   handle('sys:antigravity', () => ({ instalado: detectarAntigravity() != null, url: ANTIGRAVITY_URL }))

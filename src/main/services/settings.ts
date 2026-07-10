@@ -25,7 +25,8 @@ function normalizar(lida: Partial<ConfigApp>): ConfigApp {
     groqModel:
       typeof lida.groqModel === 'string' && lida.groqModel.trim() ? lida.groqModel : MODELO_PADRAO,
     pastaSync: typeof lida.pastaSync === 'string' ? lida.pastaSync : '',
-    deviceId: typeof lida.deviceId === 'string' && lida.deviceId ? lida.deviceId : randomUUID()
+    deviceId: typeof lida.deviceId === 'string' && lida.deviceId ? lida.deviceId : randomUUID(),
+    tutorialConcluido: lida.tutorialConcluido === true
   }
 }
 
@@ -50,7 +51,8 @@ export function salvarConfig(parcial: Partial<ConfigApp>): void {
     groqApiKey: (parcial.groqApiKey ?? atual.groqApiKey).trim(),
     groqModel: (parcial.groqModel ?? atual.groqModel).trim() || MODELO_PADRAO,
     pastaSync: (parcial.pastaSync ?? atual.pastaSync).trim(),
-    deviceId: atual.deviceId
+    deviceId: atual.deviceId,
+    tutorialConcluido: parcial.tutorialConcluido ?? atual.tutorialConcluido
   }
   writeFileSync(caminhoConfig, JSON.stringify(merge, null, 2))
 }

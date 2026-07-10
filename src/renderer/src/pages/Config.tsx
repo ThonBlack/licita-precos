@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react'
-import { DatabaseBackup, FolderSync, RefreshCw, RotateCw, Save } from 'lucide-react'
+import { DatabaseBackup, FolderSync, GraduationCap, RefreshCw, RotateCw, Save, Search } from 'lucide-react'
 import type { ConfigApp, EstadoUpdate, InfoBanco, StatusSync } from '../../../shared/types'
 import { Alerta, Badge, Button, Card, Input, Spinner } from '../components/ui'
 
-const CFG_VAZIO: ConfigApp = { groqApiKey: '', groqModel: '', pastaSync: '', deviceId: '' }
+const CFG_VAZIO: ConfigApp = {
+  groqApiKey: '',
+  groqModel: '',
+  pastaSync: '',
+  deviceId: '',
+  tutorialConcluido: true
+}
 
-export function Config() {
+export function Config({ onAbrirTutorial }: { onAbrirTutorial: () => void }) {
   const [cfg, setCfg] = useState<ConfigApp>(CFG_VAZIO)
   const [info, setInfo] = useState<InfoBanco | null>(null)
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'erro'; texto: string } | null>(null)
@@ -21,7 +27,8 @@ export function Config() {
           groqApiKey: res.data.groqApiKey,
           groqModel: res.data.groqModel,
           pastaSync: res.data.pastaSync,
-          deviceId: res.data.deviceId
+          deviceId: res.data.deviceId,
+          tutorialConcluido: res.data.tutorialConcluido
         })
         setInfo(res.data)
       } else {
@@ -65,6 +72,32 @@ export function Config() {
     const s = await window.api.statusSync()
     if (s.ok) setSync(s.data)
     setMsg({ tipo: 'ok', texto: 'Pasta de sincronização definida.' })
+  }
+
+  async function detectarDrive() {
+    setMsg(null)
+    const res = await window.api.autoDetectarPasta()
+    if (!res.ok) {
+      setMsg({ tipo: 'erro', texto: res.error })
+      return
+    }
+    if (res.data.pasta) {
+      setCfg((c) => ({ ...c, pastaSync: res.data.pasta }))
+      const s = await window.api.statusSync()
+      if (s.ok) setSync(s.data)
+      setMsg({
+        tipo: 'ok',
+        texto: res.data.detectada
+          ? `Pasta do Drive encontrada: ${res.data.pasta}`
+          : `Já configurada: ${res.data.pasta}`
+      })
+    } else {
+      setMsg({
+        tipo: 'erro',
+        texto:
+          'Não achei a pasta "Licita Precos Mih" no Google Drive deste PC. Instale o Google Drive para computador e adicione a pasta compartilhada ao "Meu Drive" — depois clique em Detectar de novo.'
+      })
+    }
   }
 
   async function verificarUpd() {
@@ -126,14 +159,17 @@ export function Config() {
 
       <Card title="Sincronização entre PCs">
         <p className="mb-3 text-sm text-zinc-600">
-          Escolha uma pasta que esteja dentro do seu <strong>Google Drive / OneDrive</strong> (ou pasta
-          de rede) compartilhada com os outros PCs. Ao importar um mapa aqui, ele é gravado nessa pasta; os
-          outros apps avisam “novos mapas — adicionar?” e puxam automaticamente. Aponte a{' '}
-          <strong>mesma pasta compartilhada</strong> em cada PC.
+          Os mapas são divididos entre os PCs por uma pasta do <strong>Google Drive</strong>. O app tenta
+          achar a pasta <strong>sozinho</strong> ao abrir. Se aparecer “sincronização desligada”, clique em{' '}
+          <strong>Detectar Google Drive</strong> (precisa do Google Drive para computador instalado e a
+          pasta compartilhada adicionada ao “Meu Drive”). Como alternativa, dá pra apontar a pasta na mão.
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={detectarDrive}>
+            <Search className="h-4 w-4" /> Detectar Google Drive
+          </Button>
           <Button variant="outline" onClick={escolherPasta}>
-            <FolderSync className="h-4 w-4" /> {cfg.pastaSync ? 'Trocar pasta' : 'Escolher pasta'}
+            <FolderSync className="h-4 w-4" /> {cfg.pastaSync ? 'Trocar pasta na mão' : 'Escolher pasta na mão'}
           </Button>
           {cfg.pastaSync ? (
             <span className="break-all text-xs text-zinc-500">{cfg.pastaSync}</span>
@@ -153,11 +189,12 @@ export function Config() {
 
       <Card title="Backup">
         <p className="mb-3 text-sm text-zinc-600">
-          Gera uma cópia do banco de dados (.db) com todo o histórico. Sem backup, um problema no PC apaga
-          tudo — exporte com frequência para uma pasta sincronizada.
+          O app já faz <strong>backup automático</strong> do banco toda vez que abre (guarda os últimos 10
+          em <code className="text-xs">%APPDATA%\LicitaPrecos\backups</code>). O botão abaixo é só se você
+          quiser guardar uma cópia extra manualmente, de preferência numa pasta sincronizada.
         </p>
         <Button variant="outline" onClick={backup}>
-          <DatabaseBackup className="h-4 w-4" /> Exportar backup
+          <DatabaseBackup className="h-4 w-4" /> Exportar backup agora
         </Button>
       </Card>
 
@@ -197,6 +234,17 @@ export function Config() {
               {verificandoUpd ? <Spinner /> : <RefreshCw className="h-4 w-4" />} Verificar atualizações
             </Button>
           )}
+        </div>
+      </Card>
+
+      <Card title="Ajuda">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-zinc-600">
+            Esqueceu como faz alguma coisa? Reveja o passo a passo inicial.
+          </p>
+          <Button variant="outline" onClick={onAbrirTutorial}>
+            <GraduationCap className="h-4 w-4" /> Ver tutorial de novo
+          </Button>
         </div>
       </Card>
 

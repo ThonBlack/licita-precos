@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Cloud, Copy, Download, ExternalLink, FileSpreadsheet, Sparkles, Trash2 } from 'lucide-react'
-import { PROMPT_ANTIGRAVITY } from '../../../shared/prompts'
+import {
+  Check,
+  Cloud,
+  Copy,
+  Download,
+  ExternalLink,
+  FileSpreadsheet,
+  Paperclip,
+  RefreshCw,
+  Sparkles,
+  Trash2
+} from 'lucide-react'
+import { montarPromptAntigravity } from '../../../shared/prompts'
 import type {
   DecisaoLinha,
   ImportacaoParseada,
@@ -8,6 +19,7 @@ import type {
   LinhaImportacao,
   Mapa,
   ResumoImportacao,
+  SessaoMapa,
   StatusSync,
   Sugestao
 } from '../../../shared/types'
@@ -37,11 +49,81 @@ export function Importar() {
   const [sync, setSync] = useState<StatusSync | null>(null)
   const [agInstalado, setAgInstalado] = useState<boolean | null>(null)
   const [importandoSync, setImportandoSync] = useState(false)
+  const [sessao, setSessao] = useState<SessaoMapa | null>(null)
+  const [preparando, setPreparando] = useState(false)
+  const [sincronizando, setSincronizando] = useState(false)
 
   async function copiarPromptAntigravity() {
-    await navigator.clipboard.writeText(PROMPT_ANTIGRAVITY)
+    await navigator.clipboard.writeText(
+      montarPromptAntigravity(sessao?.caminhoXlsx ?? '', sessao?.caminhosMapas ?? [])
+    )
     setCopiado(true)
     setTimeout(() => setCopiado(false), 2000)
+  }
+
+  async function prepararMapa() {
+    setPreparando(true)
+    setErro(null)
+    setResumo(null)
+    const res = await window.api.prepararMapa()
+    setPreparando(false)
+    if (!res.ok) {
+      setErro(res.error)
+      return
+    }
+    setSessao(res.data)
+    setAviso('Planilha criada. Agora adicione as fotos/PDFs e cole o prompt no Antigravity.')
+  }
+
+  async function adicionarArquivos() {
+    if (!sessao) return
+    setErro(null)
+    const res = await window.api.adicionarArquivosMapa(sessao.pastaSessao)
+    if (!res.ok) {
+      setErro(res.error)
+      return
+    }
+    setSessao({ ...sessao, caminhosMapas: res.data })
+  }
+
+  async function importarDaSessao() {
+    if (!sessao) return
+    setErro(null)
+    setAviso(null)
+    setResumo(null)
+    setCarregando(true)
+    const res = await window.api.importarSessao(sessao.caminhoXlsx)
+    setCarregando(false)
+    if (!res.ok) {
+      setErro(res.error)
+      return
+    }
+    const cat = await window.api.listarCatalogo()
+    if (cat.ok) setCatalogo(cat.data)
+    setParseada(res.data)
+    setMeta({ idCompra: '', orgao: '', dataAutenticacao: '' })
+    const iniciais: Decisoes = {}
+    for (const l of res.data.linhas) iniciais[l.linha] = decisaoInicial(l)
+    setDecisoes(iniciais)
+  }
+
+  async function sincronizar() {
+    setSincronizando(true)
+    setErro(null)
+    const res = await window.api.sincronizar()
+    setSincronizando(false)
+    if (!res.ok) {
+      setErro(res.error)
+      return
+    }
+    const r = res.data
+    setAviso(
+      `Sincronizado: ${r.enviados} enviado(s), ${r.mapasImportados} recebido(s)` +
+        (r.falhas ? `, ${r.falhas} com erro` : '') +
+        '.'
+    )
+    await carregarMapas()
+    await carregarSync()
   }
 
   async function abrirAntigravity() {
@@ -144,7 +226,9 @@ export function Importar() {
     setResumo(res.data)
     setParseada(null)
     setDecisoes({})
+    setSessao(null)
     void carregarMapas()
+    void carregarSync()
   }
 
   async function excluirMapa(m: Mapa) {
@@ -242,7 +326,14 @@ export function Importar() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">Importar mapa de apuração</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold">Importar mapa de apuração</h1>
+        {sync?.pastaConfigurada && (
+          <Button variant="outline" size="sm" onClick={sincronizar} disabled={sincronizando}>
+            {sincronizando ? <Spinner /> : <RefreshCw className="h-4 w-4" />} Sincronizar
+          </Button>
+        )}
+      </div>
 
       {resumo && (
         <Alerta tipo="ok">
@@ -315,31 +406,60 @@ export function Importar() {
             <Sparkles className="h-4 w-4 text-violet-500" /> Preencher com IA (Antigravity)
           </span>
         }
-        actions={
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={abrirAntigravity}>
-              {agInstalado ? <ExternalLink className="h-4 w-4" /> : <Download className="h-4 w-4" />}
-              {agInstalado === false ? 'Baixar Antigravity' : 'Abrir Antigravity'}
-            </Button>
-            <Button size="sm" variant="outline" onClick={copiarPromptAntigravity}>
-              {copiado ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-              {copiado ? 'Copiado!' : 'Copiar prompt'}
-            </Button>
-          </div>
-        }
       >
-        <p className="mb-3 text-sm text-zinc-600">
-          Prefere não copiar e colar tabela? Baixe o modelo acima, copie o prompt abaixo e cole no{' '}
-          <strong>Antigravity</strong> — ele mesmo abre a planilha, lê as fotos/PDFs dos mapas e
-          preenche. Só troque os dois caminhos entre colchetes pelos da sua máquina.
-        </p>
-        <Textarea
-          readOnly
-          rows={8}
-          value={PROMPT_ANTIGRAVITY}
-          onFocus={(e) => e.currentTarget.select()}
-          className="resize-none font-mono text-xs text-zinc-700"
-        />
+        {!sessao ? (
+          <>
+            <p className="mb-3 text-sm text-zinc-600">
+              Jeito automático: o app cria a planilha e junta as fotos/PDFs numa pasta, já monta o
+              prompt com os <strong>caminhos certos</strong>, você cola no <strong>Antigravity</strong>{' '}
+              e ele preenche sozinho. Depois é só importar.
+            </p>
+            <Button onClick={prepararMapa} disabled={preparando}>
+              {preparando ? <Spinner /> : <Sparkles className="h-4 w-4" />} Preparar mapa para IA
+            </Button>
+          </>
+        ) : (
+          <div className="space-y-3">
+            <ol className="list-decimal space-y-1 pl-5 text-sm text-zinc-600">
+              <li>
+                Adicione as fotos/PDFs do mapa <span className="text-zinc-400">(pode marcar vários)</span>.
+              </li>
+              <li>Copie o prompt e abra o Antigravity — cole lá e mande rodar.</li>
+              <li>Quando ele terminar, clique em “Já preenchi — importar”.</li>
+            </ol>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={adicionarArquivos}>
+                <Paperclip className="h-4 w-4" /> Adicionar fotos/PDF ({sessao.caminhosMapas.length})
+              </Button>
+              <Button size="sm" variant="outline" onClick={copiarPromptAntigravity}>
+                {copiado ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                {copiado ? 'Copiado!' : 'Copiar prompt'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={abrirAntigravity}>
+                {agInstalado ? <ExternalLink className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+                {agInstalado === false ? 'Baixar Antigravity' : 'Abrir Antigravity'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSessao(null)}>
+                Cancelar
+              </Button>
+            </div>
+            <p className="break-all text-xs text-zinc-500">
+              Planilha: <span className="font-mono">{sessao.caminhoXlsx}</span>
+            </p>
+            <Textarea
+              readOnly
+              rows={9}
+              value={montarPromptAntigravity(sessao.caminhoXlsx, sessao.caminhosMapas)}
+              onFocus={(e) => e.currentTarget.select()}
+              className="resize-none font-mono text-xs text-zinc-700"
+            />
+            <div className="flex justify-end">
+              <Button onClick={importarDaSessao} disabled={carregando}>
+                {carregando ? <Spinner /> : <FileSpreadsheet className="h-4 w-4" />} Já preenchi — importar
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card title="Mapas importados">

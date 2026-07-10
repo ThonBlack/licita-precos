@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { FileUp, Library, MessageCircle, Search, Settings } from 'lucide-react'
 import { cn } from './components/ui'
+import { Tutorial } from './components/Tutorial'
 import { Buscar } from './pages/Buscar'
 import { Perguntar } from './pages/Perguntar'
 import { Importar } from './pages/Importar'
@@ -20,6 +21,19 @@ const NAV: { id: Pagina; rotulo: string; Icone: typeof Search }[] = [
 export default function App() {
   const [pagina, setPagina] = useState<Pagina>('buscar')
   const [pendentesSync, setPendentesSync] = useState(0)
+  const [mostrarTutorial, setMostrarTutorial] = useState(false)
+
+  // Tutorial "antiburro" na primeira abertura (enquanto tutorialConcluido for false).
+  useEffect(() => {
+    void window.api.obterConfig().then((res) => {
+      if (res.ok && !res.data.tutorialConcluido) setMostrarTutorial(true)
+    })
+  }, [])
+
+  async function fecharTutorial() {
+    setMostrarTutorial(false)
+    await window.api.salvarConfig({ tutorialConcluido: true })
+  }
 
   useEffect(() => {
     let vivo = true
@@ -37,6 +51,7 @@ export default function App() {
 
   return (
     <div className="flex h-full">
+      {mostrarTutorial && <Tutorial onFechar={fecharTutorial} />}
       <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-200 bg-white">
         <div className="px-4 py-5">
           <h1 className="text-lg font-bold tracking-tight">LicitaPreços</h1>
@@ -77,7 +92,7 @@ export default function App() {
           {pagina === 'perguntar' && <Perguntar irPara={setPagina} />}
           {pagina === 'importar' && <Importar />}
           {pagina === 'catalogo' && <Catalogo />}
-          {pagina === 'config' && <Config />}
+          {pagina === 'config' && <Config onAbrirTutorial={() => setMostrarTutorial(true)} />}
         </div>
       </main>
     </div>

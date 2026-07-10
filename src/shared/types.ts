@@ -143,6 +143,7 @@ export interface ConfigApp {
   groqModel: string
   pastaSync: string // pasta compartilhada (Drive/OneDrive/rede) p/ sync entre PCs; vazio = desligado
   deviceId: string // id desta instalação (gerado 1x), vai no pacote de sync
+  tutorialConcluido: boolean // false até o usuário terminar/pular o tutorial inicial
 }
 
 export interface InfoBanco {
@@ -175,6 +176,23 @@ export interface ResumoSync {
   ofertasCriadas: number
   itensCriados: number
   falhas: number
+}
+
+/** Resultado do botão "Sincronizar": push dos mapas locais + pull dos de outros PCs. */
+export interface ResumoSincronizacao extends ResumoSync {
+  enviados: number
+}
+
+/** Sessão de preenchimento com IA: planilha modelo + fotos/PDFs separados numa pasta de trabalho. */
+export interface SessaoMapa {
+  pastaSessao: string
+  caminhoXlsx: string
+  caminhosMapas: string[]
+}
+
+export interface DeteccaoPasta {
+  pasta: string
+  detectada: boolean // true = achada agora pela auto-detecção; false = já estava configurada / não achou
 }
 
 export interface StatusAntigravity {
@@ -218,13 +236,18 @@ export interface Api {
   perguntar(mensagens: MensagemChat[]): Promise<Resp<string>>
   exportarBackup(): Promise<Resp<{ caminho: string } | null>>
   obterConfig(): Promise<Resp<ConfigApp & InfoBanco>>
-  salvarConfig(cfg: ConfigApp): Promise<Resp<null>>
+  salvarConfig(cfg: Partial<ConfigApp>): Promise<Resp<null>>
   verificarUpdate(): Promise<Resp<EstadoUpdate>>
   estadoUpdate(): Promise<Resp<EstadoUpdate>>
   instalarUpdate(): Promise<Resp<null>>
   escolherPastaSync(): Promise<Resp<{ pasta: string } | null>>
+  autoDetectarPasta(): Promise<Resp<DeteccaoPasta>>
   statusSync(): Promise<Resp<StatusSync>>
   importarSync(): Promise<Resp<ResumoSync>>
+  sincronizar(): Promise<Resp<ResumoSincronizacao>>
+  prepararMapa(): Promise<Resp<SessaoMapa>>
+  adicionarArquivosMapa(pastaSessao: string): Promise<Resp<string[]>>
+  importarSessao(caminhoXlsx: string): Promise<Resp<ImportacaoParseada>>
   statusAntigravity(): Promise<Resp<StatusAntigravity>>
   abrirAntigravity(): Promise<Resp<StatusAntigravity>>
 }

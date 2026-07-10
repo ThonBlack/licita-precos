@@ -28,8 +28,13 @@ const api: Api = {
   estadoUpdate: invoke('update:estado'),
   instalarUpdate: invoke('update:instalar'),
   escolherPastaSync: invoke('sync:escolherPasta'),
+  autoDetectarPasta: invoke('sync:autoDetectar'),
   statusSync: invoke('sync:status'),
   importarSync: invoke('sync:importar'),
+  sincronizar: invoke('sync:sincronizar'),
+  prepararMapa: invoke('mapa:preparar'),
+  adicionarArquivosMapa: invoke('mapa:adicionarArquivos'),
+  importarSessao: invoke('mapa:importarSessao'),
   statusAntigravity: invoke('sys:antigravity'),
   abrirAntigravity: invoke('sys:abrirAntigravity')
 }

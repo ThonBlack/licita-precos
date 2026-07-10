@@ -1,9 +1,11 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { openDb } from './db'
 import { registrarIpc } from './ipc'
-import { initConfig } from './services/settings'
+import { initConfig, obterConfig, salvarConfig } from './services/settings'
+import { backupAutomatico } from './services/backup'
+import { detectarPastaDrive } from './services/drive'
 import { iniciarUpdater } from './updater'
 
 // Diretório de dados fixo, igual em dev e empacotado, para o banco não "mudar de lugar"
@@ -46,6 +48,24 @@ app.whenReady().then(() => {
   const dbPath = join(userDataDir, 'licitaprecos.db')
   const db = openDb(dbPath)
   registrarIpc(db, dbPath)
+
+  // Backup automático do banco a cada abertura (máx 1/12h, últimos 10) — sem depender do usuário.
+  try {
+    backupAutomatico(db, dbPath, userDataDir)
+  } catch (err) {
+    console.error('[backup] auto falhou:', err instanceof Error ? err.message : err)
+  }
+
+  // Auto-detecção da pasta do Drive: se ainda não há pasta válida, procura "Licita Precos Mih".
+  try {
+    const cfg = obterConfig()
+    if (!cfg.pastaSync || !existsSync(cfg.pastaSync)) {
+      const achada = detectarPastaDrive()
+      if (achada) salvarConfig({ pastaSync: achada })
+    }
+  } catch (err) {
+    console.error('[drive] auto-detect falhou:', err instanceof Error ? err.message : err)
+  }
 
   const win = createWindow()
 
