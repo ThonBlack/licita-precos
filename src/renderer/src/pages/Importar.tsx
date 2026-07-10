@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Download, FileSpreadsheet, Trash2 } from 'lucide-react'
+import { Check, Cloud, Copy, Download, ExternalLink, FileSpreadsheet, Sparkles, Trash2 } from 'lucide-react'
+import { PROMPT_ANTIGRAVITY } from '../../../shared/prompts'
 import type {
   DecisaoLinha,
   ImportacaoParseada,
@@ -7,10 +8,11 @@ import type {
   LinhaImportacao,
   Mapa,
   ResumoImportacao,
+  StatusSync,
   Sugestao
 } from '../../../shared/types'
 import { fmtBRL, fmtData, fmtNum, fmtPct } from '../lib/format'
-import { Alerta, Badge, Button, Card, Empty, Input, Select, Spinner, cn } from '../components/ui'
+import { Alerta, Badge, Button, Card, Empty, Input, Select, Spinner, Textarea, cn } from '../components/ui'
 
 type Decisoes = Record<number, DecisaoLinha>
 
@@ -31,14 +33,56 @@ export function Importar() {
   const [aviso, setAviso] = useState<string | null>(null)
   const [resumo, setResumo] = useState<ResumoImportacao | null>(null)
   const [mapas, setMapas] = useState<Mapa[]>([])
+  const [copiado, setCopiado] = useState(false)
+  const [sync, setSync] = useState<StatusSync | null>(null)
+  const [agInstalado, setAgInstalado] = useState<boolean | null>(null)
+  const [importandoSync, setImportandoSync] = useState(false)
+
+  async function copiarPromptAntigravity() {
+    await navigator.clipboard.writeText(PROMPT_ANTIGRAVITY)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
+
+  async function abrirAntigravity() {
+    const res = await window.api.abrirAntigravity()
+    if (res.ok) setAgInstalado(res.data.instalado)
+  }
 
   useEffect(() => {
     void carregarMapas()
+    void carregarSync()
+    void window.api.statusAntigravity().then((r) => {
+      if (r.ok) setAgInstalado(r.data.instalado)
+    })
   }, [])
 
   async function carregarMapas() {
     const res = await window.api.listarMapas()
     if (res.ok) setMapas(res.data)
+  }
+
+  async function carregarSync() {
+    const res = await window.api.statusSync()
+    if (res.ok) setSync(res.data)
+  }
+
+  async function adicionarDaSync() {
+    setImportandoSync(true)
+    setErro(null)
+    const res = await window.api.importarSync()
+    setImportandoSync(false)
+    if (!res.ok) {
+      setErro(res.error)
+      return
+    }
+    const r = res.data
+    setAviso(
+      `${r.mapasImportados} mapa(s) de outros PCs adicionados: ${r.ofertasCriadas} ofertas, ` +
+        `${r.itensCriados} item(ns) novo(s)${r.falhas ? `, ${r.falhas} com erro` : ''}.`
+    )
+    await carregarMapas()
+    await carregarSync()
   }
 
   async function baixarTemplate() {
@@ -211,6 +255,38 @@ export function Importar() {
       {aviso && <Alerta tipo="ok">{aviso}</Alerta>}
       {erro && <Alerta tipo="erro">{erro}</Alerta>}
 
+      {sync && sync.pendentes.length > 0 && (
+        <Card
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              <Cloud className="h-4 w-4 text-sky-500" /> Mapas de outros PCs
+            </span>
+          }
+          actions={
+            <Button size="sm" onClick={adicionarDaSync} disabled={importandoSync}>
+              {importandoSync ? <Spinner /> : <Download className="h-4 w-4" />} Adicionar {sync.pendentes.length}
+            </Button>
+          }
+        >
+          <p className="mb-2 text-sm text-zinc-600">
+            {sync.pendentes.length} mapa(s) importados em outro PC estão na pasta compartilhada. Adicione-os
+            ao seu histórico (o reconhecimento de itens é refeito com o seu catálogo).
+          </p>
+          <ul className="space-y-1 text-sm text-zinc-700">
+            {sync.pendentes.slice(0, 6).map((p) => (
+              <li key={p.uuid} className="flex items-center gap-2">
+                <Badge tone="blue">{p.totalItens} itens</Badge>
+                <span className="truncate">
+                  {p.orgao ?? p.origemArquivo ?? p.uuid.slice(0, 8)}
+                  {p.dataAutenticacao && <span className="text-zinc-400"> · {fmtData(p.dataAutenticacao)}</span>}
+                </span>
+              </li>
+            ))}
+            {sync.pendentes.length > 6 && <li className="text-zinc-400">… e mais {sync.pendentes.length - 6}.</li>}
+          </ul>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card title="1 · Baixar modelo">
           <p className="mb-3 text-sm text-zinc-600">
@@ -232,6 +308,39 @@ export function Importar() {
           </Button>
         </Card>
       </div>
+
+      <Card
+        title={
+          <span className="inline-flex items-center gap-1.5">
+            <Sparkles className="h-4 w-4 text-violet-500" /> Preencher com IA (Antigravity)
+          </span>
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={abrirAntigravity}>
+              {agInstalado ? <ExternalLink className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+              {agInstalado === false ? 'Baixar Antigravity' : 'Abrir Antigravity'}
+            </Button>
+            <Button size="sm" variant="outline" onClick={copiarPromptAntigravity}>
+              {copiado ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+              {copiado ? 'Copiado!' : 'Copiar prompt'}
+            </Button>
+          </div>
+        }
+      >
+        <p className="mb-3 text-sm text-zinc-600">
+          Prefere não copiar e colar tabela? Baixe o modelo acima, copie o prompt abaixo e cole no{' '}
+          <strong>Antigravity</strong> — ele mesmo abre a planilha, lê as fotos/PDFs dos mapas e
+          preenche. Só troque os dois caminhos entre colchetes pelos da sua máquina.
+        </p>
+        <Textarea
+          readOnly
+          rows={8}
+          value={PROMPT_ANTIGRAVITY}
+          onFocus={(e) => e.currentTarget.select()}
+          className="resize-none font-mono text-xs text-zinc-700"
+        />
+      </Card>
 
       <Card title="Mapas importados">
         {mapas.length === 0 ? (

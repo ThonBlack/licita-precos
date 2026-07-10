@@ -23,7 +23,15 @@ const api: Api = {
   perguntar: invoke('chat:perguntar'),
   exportarBackup: invoke('backup:exportar'),
   obterConfig: invoke('config:obter'),
-  salvarConfig: invoke('config:salvar')
+  salvarConfig: invoke('config:salvar'),
+  verificarUpdate: invoke('update:verificar'),
+  estadoUpdate: invoke('update:estado'),
+  instalarUpdate: invoke('update:instalar'),
+  escolherPastaSync: invoke('sync:escolherPasta'),
+  statusSync: invoke('sync:status'),
+  importarSync: invoke('sync:importar'),
+  statusAntigravity: invoke('sys:antigravity'),
+  abrirAntigravity: invoke('sys:abrirAntigravity')
 }
 
 contextBridge.exposeInMainWorld('api', api)

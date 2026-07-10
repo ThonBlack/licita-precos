@@ -65,6 +65,7 @@ export interface MetadadosMapa {
   idCompra: string | null
   orgao: string | null
   dataAutenticacao: string | null
+  uuid?: string // preenchido só quando o mapa vem de outro PC (sync); senão é gerado
 }
 
 export type AcaoLinha = 'associar' | 'criar' | 'pendente' | 'pular'
@@ -79,6 +80,7 @@ export interface DecisaoLinha {
 
 export interface ResumoImportacao {
   mapaId: number
+  uuid: string
   ofertasCriadas: number
   itensCriados: number
   aliasesCriados: number
@@ -88,6 +90,7 @@ export interface ResumoImportacao {
 
 export interface Mapa {
   id: number
+  uuid: string | null
   origem_arquivo: string | null
   id_compra: string | null
   orgao: string | null
@@ -138,6 +141,8 @@ export interface MensagemChat {
 export interface ConfigApp {
   groqApiKey: string
   groqModel: string
+  pastaSync: string // pasta compartilhada (Drive/OneDrive/rede) p/ sync entre PCs; vazio = desligado
+  deviceId: string // id desta instalação (gerado 1x), vai no pacote de sync
 }
 
 export interface InfoBanco {
@@ -146,6 +151,45 @@ export interface InfoBanco {
   aliases: number
   mapas: number
   ofertas: number
+}
+
+export interface PendenteSync {
+  uuid: string
+  arquivo: string
+  origemArquivo: string | null
+  idCompra: string | null
+  orgao: string | null
+  dataAutenticacao: string | null
+  totalItens: number
+}
+
+export interface StatusSync {
+  pastaConfigurada: boolean
+  pasta: string
+  erro: string | null
+  pendentes: PendenteSync[]
+}
+
+export interface ResumoSync {
+  mapasImportados: number
+  ofertasCriadas: number
+  itensCriados: number
+  falhas: number
+}
+
+export interface StatusAntigravity {
+  instalado: boolean
+  url: string
+}
+
+export type FaseUpdate = 'idle' | 'verificando' | 'baixando' | 'pronto' | 'atual' | 'erro' | 'dev'
+
+export interface EstadoUpdate {
+  fase: FaseUpdate
+  versaoAtual: string
+  versaoNova: string | null
+  progresso: number | null
+  erro: string | null
 }
 
 export type Resp<T> = { ok: true; data: T } | { ok: false; error: string }
@@ -175,4 +219,12 @@ export interface Api {
   exportarBackup(): Promise<Resp<{ caminho: string } | null>>
   obterConfig(): Promise<Resp<ConfigApp & InfoBanco>>
   salvarConfig(cfg: ConfigApp): Promise<Resp<null>>
+  verificarUpdate(): Promise<Resp<EstadoUpdate>>
+  estadoUpdate(): Promise<Resp<EstadoUpdate>>
+  instalarUpdate(): Promise<Resp<null>>
+  escolherPastaSync(): Promise<Resp<{ pasta: string } | null>>
+  statusSync(): Promise<Resp<StatusSync>>
+  importarSync(): Promise<Resp<ResumoSync>>
+  statusAntigravity(): Promise<Resp<StatusAntigravity>>
+  abrirAntigravity(): Promise<Resp<StatusAntigravity>>
 }

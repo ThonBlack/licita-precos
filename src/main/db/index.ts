@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { randomUUID } from 'node:crypto'
 
 export type DB = Database.Database
 
@@ -60,5 +61,17 @@ function migrate(db: DB): void {
   if (versao < 1) {
     db.exec(SCHEMA_V1)
     db.pragma('user_version = 1')
+  }
+  if (versao < 2) {
+    // uuid global do mapa: identidade estável entre PCs para a sincronização por pasta
+    db.exec(`ALTER TABLE mapas ADD COLUMN uuid TEXT`)
+    const semUuid = db.prepare(`SELECT id FROM mapas WHERE uuid IS NULL`).all() as { id: number }[]
+    const setUuid = db.prepare(`UPDATE mapas SET uuid = ? WHERE id = ?`)
+    const backfill = db.transaction(() => {
+      for (const { id } of semUuid) setUuid.run(randomUUID(), id)
+    })
+    backfill()
+    db.exec(`CREATE UNIQUE INDEX idx_mapas_uuid ON mapas(uuid)`)
+    db.pragma('user_version = 2')
   }
 }

@@ -1,10 +1,9 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { ConfigApp } from '../../shared/types'
 
 export const MODELO_PADRAO = 'llama-3.3-70b-versatile'
-
-const PADRAO: ConfigApp = { groqApiKey: '', groqModel: MODELO_PADRAO }
 
 let caminhoConfig = ''
 
@@ -12,22 +11,46 @@ export function initConfig(dirUserData: string): void {
   caminhoConfig = join(dirUserData, 'config.json')
 }
 
-export function obterConfig(): ConfigApp {
+function ler(): Partial<ConfigApp> {
   try {
-    const lida = JSON.parse(readFileSync(caminhoConfig, 'utf8')) as Partial<ConfigApp>
-    return {
-      groqApiKey: typeof lida.groqApiKey === 'string' ? lida.groqApiKey : '',
-      groqModel: typeof lida.groqModel === 'string' && lida.groqModel.trim() ? lida.groqModel : MODELO_PADRAO
-    }
+    return JSON.parse(readFileSync(caminhoConfig, 'utf8')) as Partial<ConfigApp>
   } catch {
-    return { ...PADRAO }
+    return {}
   }
 }
 
-export function salvarConfig(cfg: ConfigApp): void {
-  const limpa: ConfigApp = {
-    groqApiKey: cfg.groqApiKey.trim(),
-    groqModel: cfg.groqModel.trim() || MODELO_PADRAO
+function normalizar(lida: Partial<ConfigApp>): ConfigApp {
+  return {
+    groqApiKey: typeof lida.groqApiKey === 'string' ? lida.groqApiKey : '',
+    groqModel:
+      typeof lida.groqModel === 'string' && lida.groqModel.trim() ? lida.groqModel : MODELO_PADRAO,
+    pastaSync: typeof lida.pastaSync === 'string' ? lida.pastaSync : '',
+    deviceId: typeof lida.deviceId === 'string' && lida.deviceId ? lida.deviceId : randomUUID()
   }
-  writeFileSync(caminhoConfig, JSON.stringify(limpa, null, 2))
+}
+
+/** Lê o config, gerando e persistindo o deviceId na primeira vez que faltar. */
+export function obterConfig(): ConfigApp {
+  const lida = ler()
+  const cfg = normalizar(lida)
+  if (lida.deviceId !== cfg.deviceId) {
+    try {
+      writeFileSync(caminhoConfig, JSON.stringify(cfg, null, 2))
+    } catch {
+      /* se não der pra escrever agora, gera de novo na próxima leitura */
+    }
+  }
+  return cfg
+}
+
+/** Salva mesclando com o disco: salvar só a IA não zera pastaSync/deviceId, e vice-versa. */
+export function salvarConfig(parcial: Partial<ConfigApp>): void {
+  const atual = normalizar(ler())
+  const merge: ConfigApp = {
+    groqApiKey: (parcial.groqApiKey ?? atual.groqApiKey).trim(),
+    groqModel: (parcial.groqModel ?? atual.groqModel).trim() || MODELO_PADRAO,
+    pastaSync: (parcial.pastaSync ?? atual.pastaSync).trim(),
+    deviceId: atual.deviceId
+  }
+  writeFileSync(caminhoConfig, JSON.stringify(merge, null, 2))
 }

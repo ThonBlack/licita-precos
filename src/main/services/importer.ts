@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs'
 import { basename } from 'node:path'
+import { randomUUID } from 'node:crypto'
 import type { DB } from '../db'
 import type {
   DecisaoLinha,
@@ -208,10 +209,15 @@ export function confirmarImportacao(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
 
+  const uuid = meta.uuid?.trim() || randomUUID()
+
   const tx = db.transaction((): ResumoImportacao => {
     const info = db
-      .prepare(`INSERT INTO mapas (origem_arquivo, id_compra, orgao, data_autenticacao) VALUES (?, ?, ?, ?)`)
+      .prepare(
+        `INSERT INTO mapas (uuid, origem_arquivo, id_compra, orgao, data_autenticacao) VALUES (?, ?, ?, ?, ?)`
+      )
       .run(
+        uuid,
         meta.arquivo || null,
         meta.idCompra?.trim() || null,
         meta.orgao?.trim() || null,
@@ -272,7 +278,7 @@ export function confirmarImportacao(
 
     if (ofertasCriadas === 0) throw new Error('Nenhuma oferta foi importada — importação cancelada.')
 
-    return { mapaId, ofertasCriadas, itensCriados, aliasesCriados, linhasPuladas, linhasPendentes }
+    return { mapaId, uuid, ofertasCriadas, itensCriados, aliasesCriados, linhasPuladas, linhasPendentes }
   })
 
   return tx()

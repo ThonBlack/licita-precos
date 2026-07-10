@@ -1,11 +1,7 @@
 import ExcelJS from 'exceljs'
+import { PROMPT_EXTRACAO } from '../../shared/prompts'
 
 export const MAX_PROPONENTES = 6
-
-export const PROMPT_EXTRACAO = `Extraia os dados desta tabela de mapa de apuração de licitação e organize em uma tabela
-com as colunas: Item, Descrição, Quantidade, Unidade, e uma coluna "Proponente" + "Valor"
-para cada proponente que aparece na imagem. Não invente nenhum dado que não esteja
-visível na imagem — se algo estiver ilegível, marque como "ILEGÍVEL" em vez de adivinhar.`
 
 /** Gera a planilha modelo que a usuária preenche a partir dos mapas de apuração. */
 export async function gerarModelo(caminho: string): Promise<void> {

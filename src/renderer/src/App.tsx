@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FileUp, Library, MessageCircle, Search, Settings } from 'lucide-react'
 import { cn } from './components/ui'
 import { Buscar } from './pages/Buscar'
@@ -19,6 +19,21 @@ const NAV: { id: Pagina; rotulo: string; Icone: typeof Search }[] = [
 
 export default function App() {
   const [pagina, setPagina] = useState<Pagina>('buscar')
+  const [pendentesSync, setPendentesSync] = useState(0)
+
+  useEffect(() => {
+    let vivo = true
+    const checar = async () => {
+      const res = await window.api.statusSync()
+      if (vivo && res.ok) setPendentesSync(res.data.pendentes.length)
+    }
+    void checar()
+    const t = setInterval(() => void checar(), 30_000)
+    return () => {
+      vivo = false
+      clearInterval(t)
+    }
+  }, [pagina])
 
   return (
     <div className="flex h-full">
@@ -39,6 +54,17 @@ export default function App() {
             >
               <Icone className="h-4 w-4" />
               {rotulo}
+              {id === 'importar' && pendentesSync > 0 && (
+                <span
+                  className={cn(
+                    'ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold',
+                    pagina === id ? 'bg-white text-zinc-900' : 'bg-sky-500 text-white'
+                  )}
+                  title="mapas de outros PCs prontos para adicionar"
+                >
+                  {pendentesSync}
+                </span>
+              )}
             </button>
           ))}
         </nav>

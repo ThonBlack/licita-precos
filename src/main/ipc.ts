@@ -1,4 +1,6 @@
-import { dialog, ipcMain } from 'electron'
+import { dialog, ipcMain, shell } from 'electron'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { DB } from './db'
 import type {
   ConfigApp,
@@ -24,6 +26,22 @@ import { LIMIAR_BUSCA, matchTermo } from './services/matcher'
 import { perguntar } from './services/chat'
 import { exportarBackup } from './services/backup'
 import { obterConfig, salvarConfig } from './services/settings'
+import { exportarMapa, importarPendentes, listarPendentes } from './services/sync'
+import { instalarUpdateAgora, obterEstadoUpdate, verificarUpdateManual } from './updater'
+
+const ANTIGRAVITY_URL = 'https://antigravity.google/download'
+
+/** Procura o Antigravity (fork do VS Code) nos caminhos de instalação padrão do Windows. */
+function detectarAntigravity(): string | null {
+  const local = process.env.LOCALAPPDATA
+  const prog = process.env.ProgramFiles
+  const candidatos = [
+    local && join(local, 'Programs', 'Antigravity', 'Antigravity.exe'),
+    local && join(local, 'Programs', 'antigravity', 'Antigravity.exe'),
+    prog && join(prog, 'Antigravity', 'Antigravity.exe')
+  ].filter((c): c is string => typeof c === 'string')
+  return candidatos.find((c) => existsSync(c)) ?? null
+}
 
 function handle(canal: string, fn: (...args: never[]) => unknown): void {
   ipcMain.handle(canal, async (_evento, ...args): Promise<Resp<unknown>> => {
@@ -59,9 +77,17 @@ export function registrarIpc(db: DB, dbPath: string): void {
     return aplicarMatches(db, parseada)
   })
 
-  handle('importacao:confirmar', (meta: MetadadosMapa, linhas: LinhaImportacao[], decisoes: DecisaoLinha[]) =>
-    confirmarImportacao(db, meta, linhas, decisoes)
-  )
+  handle('importacao:confirmar', (meta: MetadadosMapa, linhas: LinhaImportacao[], decisoes: DecisaoLinha[]) => {
+    const resumo = confirmarImportacao(db, meta, linhas, decisoes)
+    try {
+      const cfg = obterConfig()
+      if (cfg.pastaSync) exportarMapa(db, cfg.pastaSync, resumo.mapaId, cfg.deviceId)
+    } catch (err) {
+      // sync é best-effort: uma falha ao gravar na pasta não pode derrubar a importação
+      console.error('[sync] falha ao exportar mapa:', err instanceof Error ? err.message : err)
+    }
+    return resumo
+  })
 
   handle('mapas:listar', () =>
     db
@@ -143,5 +169,59 @@ export function registrarIpc(db: DB, dbPath: string): void {
   handle('config:salvar', (cfg: ConfigApp) => {
     salvarConfig(cfg)
     return null
+  })
+
+  handle('update:verificar', () => verificarUpdateManual())
+  handle('update:estado', () => obterEstadoUpdate())
+  handle('update:instalar', () => {
+    instalarUpdateAgora()
+    return null
+  })
+
+  handle('sync:escolherPasta', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog({
+      title: 'Escolher pasta de sincronização (dentro do Drive/OneDrive)',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    const pasta = filePaths[0]
+    if (canceled || !pasta) return null
+    salvarConfig({ pastaSync: pasta })
+    return { pasta }
+  })
+
+  handle('sync:status', () => {
+    const cfg = obterConfig()
+    if (!cfg.pastaSync) {
+      return { pastaConfigurada: false, pasta: '', erro: null, pendentes: [] }
+    }
+    try {
+      return {
+        pastaConfigurada: true,
+        pasta: cfg.pastaSync,
+        erro: null,
+        pendentes: listarPendentes(db, cfg.pastaSync)
+      }
+    } catch (err) {
+      return {
+        pastaConfigurada: true,
+        pasta: cfg.pastaSync,
+        erro: err instanceof Error ? err.message : String(err),
+        pendentes: []
+      }
+    }
+  })
+
+  handle('sync:importar', () => {
+    const cfg = obterConfig()
+    return importarPendentes(db, cfg.pastaSync)
+  })
+
+  handle('sys:antigravity', () => ({ instalado: detectarAntigravity() != null, url: ANTIGRAVITY_URL }))
+
+  handle('sys:abrirAntigravity', async () => {
+    const exe = detectarAntigravity()
+    if (exe) await shell.openPath(exe)
+    else await shell.openExternal(ANTIGRAVITY_URL)
+    return { instalado: exe != null, url: ANTIGRAVITY_URL }
   })
 }

@@ -6,7 +6,7 @@
  * Rodar: pnpm smoke
  * Atenção: precisa do better-sqlite3 compilado para o ABI do Node (não do Electron).
  */
-import { mkdtempSync, rmSync, existsSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import ExcelJS from 'exceljs'
@@ -14,6 +14,7 @@ import { openDb } from '../src/main/db'
 import { criarItem, adicionarAlias, listarCatalogo } from '../src/main/services/catalogo'
 import { gerarModelo } from '../src/main/services/template'
 import { parseArquivo, aplicarMatches, confirmarImportacao, parseNumero } from '../src/main/services/importer'
+import { exportarMapa, listarPendentes, importarPendentes } from '../src/main/services/sync'
 import { matchTermo } from '../src/main/services/matcher'
 import { historicoItem } from '../src/main/services/historico'
 import { normalizar } from '../src/main/services/normalize'
@@ -123,6 +124,33 @@ try {
   const histFiltrado = historicoItem(db, papel.id, 'alfa')
   check('filtro por proponente', histFiltrado.registros.length === 1, histFiltrado.registros.length)
 
+  // --- sincronização entre PCs (Opção A: pasta compartilhada) -------------
+  const pastaSync = join(dir, 'sync')
+  mkdirSync(pastaSync, { recursive: true })
+  exportarMapa(db, pastaSync, resumo.mapaId, 'device-pc1')
+  check('pacote exportado na pasta', existsSync(join(pastaSync, `mapa-${resumo.uuid}.json`)))
+
+  const db2 = openDb(join(dir, 'teste2.db')) // simula outro PC, catálogo próprio (vazio)
+  const pend = listarPendentes(db2, pastaSync)
+  check('outro PC vê 1 mapa pendente', pend.length === 1, pend.length)
+  check('pendente traz metadados', pend[0]?.orgao === 'E.E. América' && pend[0]?.totalItens === 2, pend[0])
+
+  const rsync = importarPendentes(db2, pastaSync)
+  check('outro PC importou 1 mapa', rsync.mapasImportados === 1, rsync)
+  check('outro PC criou 4 ofertas', rsync.ofertasCriadas === 4, rsync)
+  const uuidDb2 = (db2.prepare('SELECT uuid FROM mapas').get() as { uuid: string } | undefined)?.uuid
+  check('uuid do mapa preservado entre PCs', uuidDb2 === resumo.uuid, uuidDb2)
+  const ofertasDb2 = (db2.prepare('SELECT COUNT(*) AS n FROM ofertas').get() as { n: number }).n
+  check('ofertas gravadas no outro PC', ofertasDb2 === 4, ofertasDb2)
+
+  // idempotência: reimportar a mesma pasta não duplica
+  check('sem pendentes após importar', listarPendentes(db2, pastaSync).length === 0)
+  const rsync2 = importarPendentes(db2, pastaSync)
+  check('reimportação não duplica', rsync2.mapasImportados === 0, rsync2)
+  const totalMapasDb2 = (db2.prepare('SELECT COUNT(*) AS n FROM mapas').get() as { n: number }).n
+  check('outro PC tem exatamente 1 mapa', totalMapasDb2 === 1, totalMapasDb2)
+
+  db2.close()
   db.close()
 } finally {
   rmSync(dir, { recursive: true, force: true })
