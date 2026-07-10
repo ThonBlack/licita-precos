@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
-import { Combine, FileDown, LayoutDashboard, PartyPopper, Search, Target, Users, X } from 'lucide-react'
+import { Combine, FileDown, Gauge, LayoutDashboard, PartyPopper, Search, Target, Users, X } from 'lucide-react'
 import { Button } from './ui'
 import type { Pagina } from '../App'
 
 /** Bump quando lançar novidades: se != do que está salvo no config, o modal reaparece. */
-export const NOVIDADES_VERSAO = 'v0.4.1'
+export const NOVIDADES_VERSAO = 'v0.5'
 
 const ITENS: { Icone: typeof Search; titulo: string; texto: ReactNode }[] = [
   {
@@ -54,6 +54,16 @@ const ITENS: { Icone: typeof Search; titulo: string; texto: ReactNode }[] = [
       <>
         No Catálogo, <strong>“Juntar parecidos”</strong> une o mesmo produto escrito de formas diferentes — o histórico
         vira um só e a busca fica limpa.
+      </>
+    )
+  },
+  {
+    Icone: Gauge,
+    titulo: 'Preço de referência (teto) ⚖️',
+    texto: (
+      <>
+        Agora o app guarda o <strong>teto de referência</strong> do item e avisa quando uma oferta ficou{' '}
+        <strong>acima do teto</strong>. O ajudante de proposta usa isso pra você precificar sem estourar o máximo.
       </>
     )
   }

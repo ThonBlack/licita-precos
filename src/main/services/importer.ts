@@ -73,6 +73,7 @@ interface MapaColunas {
   unidade: number | null
   pares: { proponente: number; valor: number | null }[]
   vencedor: number | null
+  referencia: number | null
 }
 
 function detectarColunas(ws: ExcelJS.Worksheet): { linhaCabecalho: number; colunas: MapaColunas } | null {
@@ -85,7 +86,8 @@ function detectarColunas(ws: ExcelJS.Worksheet): { linhaCabecalho: number; colun
       quantidade: null,
       unidade: null,
       pares: [],
-      vencedor: null
+      vencedor: null,
+      referencia: null
     }
     row.eachCell({ includeEmpty: false }, (cell, col) => {
       const h = normalizar(cellTexto(cell))
@@ -94,6 +96,8 @@ function detectarColunas(ws: ExcelJS.Worksheet): { linhaCabecalho: number; colun
       else if (h.startsWith('descricao')) colunas.descricao = col
       else if (h.startsWith('quant') || h === 'qtd' || h === 'qtde') colunas.quantidade = col
       else if (h.startsWith('unidade') || h === 'und' || h === 'un') colunas.unidade = col
+      // referência ANTES de valor/preço, senão "preço de referência" cai no branch de valor
+      else if (h.includes('referencia') || h === 'teto' || h.startsWith('preco ref')) colunas.referencia = col
       else if (h.startsWith('proponente') || h.startsWith('licitante') || h.startsWith('fornecedor')) {
         colunas.pares.push({ proponente: col, valor: null })
       } else if (h.startsWith('valor') || h.startsWith('vl') || h.startsWith('preco')) {
@@ -175,6 +179,7 @@ export async function parseArquivo(caminho: string): Promise<ImportacaoParseada>
       unidade: colunas.unidade ? cellTexto(row.getCell(colunas.unidade)) || null : null,
       propostas,
       vencedorInformado: colunas.vencedor ? cellTexto(row.getCell(colunas.vencedor)) || null : null,
+      precoReferencia: colunas.referencia ? cellNumero(row.getCell(colunas.referencia)) : null,
       match: { tipo: 'nenhum', itemId: null, itemNome: null, similaridade: 0, sugestoes: [] }
     })
   }
@@ -205,8 +210,8 @@ export function confirmarImportacao(
   const porLinha = new Map(decisoes.map((d) => [d.linha, d]))
   const insereOferta = db.prepare(
     `INSERT INTO ofertas (mapa_id, item_canonico_id, descricao_original, quantidade, unidade,
-                          proponente, valor_unitario, valor_total, venceu)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                          proponente, valor_unitario, valor_total, venceu, preco_referencia)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
 
   const uuid = meta.uuid?.trim() || randomUUID()
@@ -270,7 +275,8 @@ export function confirmarImportacao(
           p.proponente,
           p.valorUnitario,
           p.valorTotal,
-          p === vencedora ? 1 : 0
+          p === vencedora ? 1 : 0,
+          linha.precoReferencia ?? null
         )
         ofertasCriadas++
       }

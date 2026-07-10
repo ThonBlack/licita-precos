@@ -74,4 +74,9 @@ function migrate(db: DB): void {
     db.exec(`CREATE UNIQUE INDEX idx_mapas_uuid ON mapas(uuid)`)
     db.pragma('user_version = 2')
   }
+  if (versao < 3) {
+    // preço de referência (teto) do item na licitação — por linha, replicado nas ofertas dela
+    db.exec(`ALTER TABLE ofertas ADD COLUMN preco_referencia REAL`)
+    db.pragma('user_version = 3')
+  }
 }

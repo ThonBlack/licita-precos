@@ -26,6 +26,7 @@ interface ItemPacote {
   quantidade: number | null
   unidade: string | null
   vencedorInformado: string | null
+  precoReferencia: number | null
   // item canônico ao qual a oferta estava ligada no PC de origem (p/ o outro PC recriar o catálogo)
   itemCanonico: ItemCanonicoPacote | null
   propostas: PropostaPacote[]
@@ -51,6 +52,7 @@ interface OfertaRow {
   valor_unitario: number | null
   valor_total: number | null
   venceu: number
+  preco_referencia: number | null
   item_nome: string | null
   item_categoria: string | null
   item_unidade: string | null
@@ -80,7 +82,7 @@ function montarPacote(db: DB, mapaId: number, device: string): PacoteMapa {
   const ofertas = db
     .prepare(
       `SELECT o.descricao_original, o.quantidade, o.unidade, o.proponente, o.valor_unitario, o.valor_total, o.venceu,
-              ic.nome AS item_nome, ic.categoria AS item_categoria, ic.unidade_padrao AS item_unidade
+              o.preco_referencia, ic.nome AS item_nome, ic.categoria AS item_categoria, ic.unidade_padrao AS item_unidade
        FROM ofertas o LEFT JOIN itens_canonicos ic ON ic.id = o.item_canonico_id
        WHERE o.mapa_id = ? ORDER BY o.id`
     )
@@ -97,6 +99,7 @@ function montarPacote(db: DB, mapaId: number, device: string): PacoteMapa {
         quantidade: o.quantidade,
         unidade: o.unidade,
         vencedorInformado: null,
+        precoReferencia: o.preco_referencia,
         itemCanonico: o.item_nome
           ? { nome: o.item_nome, categoria: o.item_categoria, unidade: o.item_unidade }
           : null,
@@ -199,6 +202,7 @@ function pacoteParaLinhas(pac: PacoteMapa): LinhaImportacao[] {
       valorTotal: p.valorTotal
     })),
     vencedorInformado: it.vencedorInformado ?? null,
+    precoReferencia: it.precoReferencia ?? null,
     match: { tipo: 'nenhum', itemId: null, itemNome: null, similaridade: 0, sugestoes: [] }
   }))
 }

@@ -1,6 +1,6 @@
 import type { HistoricoItem } from '../../../shared/types'
 import { fmtBRL, fmtData, fmtNum } from '../lib/format'
-import { Badge, Empty, StatCard } from './ui'
+import { Badge, Empty, StatCard, cn } from './ui'
 
 /** Bloco reutilizável: estatísticas + tabela do histórico de um item. */
 export function HistoricoView({
@@ -37,8 +37,18 @@ export function HistoricoView({
             {stats.precoVencedorMedio != null && (
               <> — vencedores saíram, em média, por <strong>{fmtBRL(stats.precoVencedorMedio)}</strong></>
             )}
+            {stats.precoReferencia != null && (
+              <> · teto de referência <strong>{fmtBRL(stats.precoReferencia)}</strong></>
+            )}
             .
           </span>
+        </div>
+      )}
+
+      {stats.acimaDoTeto > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          ⚠️ <strong>{stats.acimaDoTeto}</strong> oferta(s) ficaram <strong>acima do teto de referência</strong>
+          {stats.precoReferencia != null && <> ({fmtBRL(stats.precoReferencia)})</>}.
         </div>
       )}
 
@@ -83,9 +93,25 @@ export function HistoricoView({
                     {fmtNum(r.quantidade)} {r.unidade ?? ''}
                   </td>
                   <td className="px-3 py-2 text-right font-medium whitespace-nowrap">
-                    {fmtBRL(r.valor_unitario)}
+                    <span
+                      className={cn(
+                        r.preco_referencia != null &&
+                          r.valor_unitario != null &&
+                          r.valor_unitario > r.preco_referencia &&
+                          'text-red-600'
+                      )}
+                    >
+                      {fmtBRL(r.valor_unitario)}
+                    </span>
                   </td>
-                  <td className="px-3 py-2">{r.venceu ? <Badge tone="green">venceu</Badge> : null}</td>
+                  <td className="px-3 py-2">
+                    <span className="inline-flex gap-1">
+                      {r.venceu ? <Badge tone="green">venceu</Badge> : null}
+                      {r.preco_referencia != null &&
+                        r.valor_unitario != null &&
+                        r.valor_unitario > r.preco_referencia && <Badge tone="red">acima do teto</Badge>}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>

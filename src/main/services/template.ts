@@ -12,7 +12,7 @@ export async function gerarModelo(caminho: string): Promise<void> {
   for (let i = 1; i <= MAX_PROPONENTES; i++) {
     cabecalhos.push(`Proponente ${i}`, `Valor ${i}`)
   }
-  cabecalhos.push('Vencedor')
+  cabecalhos.push('Vencedor', 'Preço de referência')
 
   const linha = ws.addRow(cabecalhos)
   linha.font = { bold: true }
@@ -30,6 +30,7 @@ export async function gerarModelo(caminho: string): Promise<void> {
     ws.getColumn(6 + i * 2).width = 12
   }
   ws.getColumn(5 + MAX_PROPONENTES * 2).width = 24
+  ws.getColumn(6 + MAX_PROPONENTES * 2).width = 18
 
   const inst = wb.addWorksheet('Instruções')
   inst.getColumn(1).width = 110
@@ -40,6 +41,7 @@ export async function gerarModelo(caminho: string): Promise<void> {
     '• "Valor N" é o VALOR UNITÁRIO ofertado pelo Proponente N (use vírgula ou ponto, tanto faz).',
     '• Preencha só os proponentes que existem — deixe os demais em branco.',
     '• "Vencedor" é opcional: se ficar em branco, o sistema considera vencedor o menor valor unitário.',
+    '• "Preço de referência" é opcional: o teto (preço-máximo) do item, se o mapa informar. O app avisa quando uma oferta passa desse teto.',
     '• Não mude os títulos das colunas da linha 1.',
     '',
     'MAPA EM FOTO OU PDF ESCANEADO?',

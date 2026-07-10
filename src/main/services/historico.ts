@@ -18,7 +18,7 @@ export function historicoItem(db: DB, itemId: number, filtroProponente?: string)
   let registros = db
     .prepare(
       `SELECT o.proponente, o.valor_unitario, o.valor_total, o.quantidade, o.unidade, o.venceu,
-              o.descricao_original, m.orgao, m.data_autenticacao, m.id_compra
+              o.descricao_original, m.orgao, m.data_autenticacao, m.id_compra, o.preco_referencia
        FROM ofertas o
        JOIN mapas m ON m.id = o.mapa_id
        WHERE o.item_canonico_id = ?
@@ -66,6 +66,13 @@ export function calcularEstatisticas(registros: RegistroHistorico[]): Estatistic
     ? Math.round((vencedores.reduce((s, v) => s + v, 0) / vencedores.length) * 100) / 100
     : null
 
+  // registros já vêm ordenados por data desc → o 1º com referência é o mais recente
+  const comRef = registros.find((r) => r.preco_referencia != null)
+  const precoReferencia = comRef ? comRef.preco_referencia : null
+  const acimaDoTeto = registros.filter(
+    (r) => r.valor_unitario != null && r.preco_referencia != null && r.valor_unitario > r.preco_referencia
+  ).length
+
   return {
     registros: registros.length,
     mapas: registros.length ? mapas.size : 0,
@@ -74,6 +81,8 @@ export function calcularEstatisticas(registros: RegistroHistorico[]): Estatistic
     maximo: valores.length ? valores[valores.length - 1]! : null,
     vencedorFrequente,
     precoVencedorMedio,
+    precoReferencia,
+    acimaDoTeto,
     ultimaData: datas.length ? datas.sort().at(-1)! : null
   }
 }

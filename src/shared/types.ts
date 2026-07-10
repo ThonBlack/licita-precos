@@ -50,6 +50,7 @@ export interface LinhaImportacao {
   unidade: string | null
   propostas: Proposta[]
   vencedorInformado: string | null
+  precoReferencia?: number | null // teto de referência do item (opcional)
   match: InfoMatch
 }
 
@@ -110,6 +111,7 @@ export interface RegistroHistorico {
   orgao: string | null
   data_autenticacao: string | null
   id_compra: string | null
+  preco_referencia: number | null
 }
 
 export interface Estatisticas {
@@ -120,6 +122,8 @@ export interface Estatisticas {
   maximo: number | null
   vencedorFrequente: string | null
   precoVencedorMedio: number | null // média do valor unitário das ofertas vencedoras (ajudante de proposta)
+  precoReferencia: number | null // teto de referência do item (do registro mais recente que tiver)
+  acimaDoTeto: number // quantas ofertas ficaram acima do teto de referência
   ultimaData: string | null
 }
 

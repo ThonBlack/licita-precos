@@ -14,6 +14,7 @@ Leia cada mapa e preencha a aba "Mapa" da planilha, UMA LINHA POR ITEM, usando a
 - Quantidade e Unidade: conforme o mapa.
 - Proponente 1, Valor 1, Proponente 2, Valor 2, ...: um par por empresa que ofertou. "Valor N" é o VALOR UNITÁRIO da empresa N para aquele item.
 - Vencedor: nome da empresa vencedora (opcional; em branco, o app assume o menor valor unitário).
+- Preço de referência: o teto/preço-máximo unitário do item, se o mapa informar (procure "preço de referência", "valor de referência" ou anotações "ACIMA DO PREÇO DE REFERÊNCIA R$X"). Opcional.
 
 REGRAS
 - NÃO invente nenhum dado que não esteja visível no mapa. Se algo estiver ilegível, escreva ILEGÍVEL na célula em vez de adivinhar.

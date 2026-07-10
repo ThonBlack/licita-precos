@@ -60,7 +60,8 @@ try {
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.readFile(modeloPath)
     const ws = wb.getWorksheet('Mapa')!
-    ws.addRow([1, 'PAPEL SULFITE CHAMEX A4 75G PCT 500 FLS', 10, 'Pacote', 'Papelaria Alfa', 25.9, 'Distribuidora Beta', '24,50'])
+    const l1row = ws.addRow([1, 'PAPEL SULFITE CHAMEX A4 75G PCT 500 FLS', 10, 'Pacote', 'Papelaria Alfa', 25.9, 'Distribuidora Beta', '24,50'])
+    l1row.getCell(18).value = 26.5 // coluna "Preço de referência"
     ws.addRow([2, 'Lápis preto nº 2 Faber Castell cx c/ 12', 5, 'Caixa', 'Papelaria Alfa', '18,00', 'Distribuidora Beta', 19.9, '', '', '', '', '', '', '', '', 'Papelaria Alfa'])
     await wb.xlsx.writeFile(preenchida)
   }
@@ -79,6 +80,7 @@ try {
   )
   check('linha 2 sem match', l2!.match.tipo === 'nenhum', l2!.match)
   check('vencedor informado lido', l2!.vencedorInformado === 'Papelaria Alfa')
+  check('preço de referência lido da planilha', l1!.precoReferencia === 26.5, l1!.precoReferencia)
 
   // --- confirmar importação ----------------------------------------------
   const resumo = confirmarImportacao(
@@ -157,6 +159,7 @@ try {
   const relPath = join(dir, 'relatorio.xlsx')
   await gerarRelatorio(db, {}, relPath)
   check('relatório xlsx gerado', existsSync(relPath))
+  check('papel: teto de referência guardado', historicoItem(db, papel.id).stats.precoReferencia === 26.5)
 
   // --- sincronização entre PCs (Opção A: pasta compartilhada) -------------
   const pastaSync = join(dir, 'sync')
@@ -222,6 +225,34 @@ try {
   const pastaSync3 = join(dir, 'sync3')
   check('exportarTodos envia todos para pasta nova', exportarTodos(db, pastaSync3, 'device-pc1') === 1)
   check('mapa gravado na pasta nova', existsSync(join(pastaSync3, `mapa-${resumo.uuid}.json`)))
+
+  // --- preço de referência (teto): oferta acima do teto (cria um mapa próprio) ----
+  const itemTeto = criarItem(db, { nome: 'Item Teto', categoria: null, unidade: 'Und' })
+  confirmarImportacao(
+    db,
+    { arquivo: 'ref.xlsx', idCompra: 'R1', orgao: 'Escola Ref', dataAutenticacao: '2026-07-01' },
+    [
+      {
+        linha: 1,
+        numeroItem: null,
+        descricao: 'Produto com teto',
+        quantidade: 1,
+        unidade: 'Und',
+        propostas: [
+          { proponente: 'Barato', valorUnitario: 40, valorTotal: 40 },
+          { proponente: 'Caro', valorUnitario: 60, valorTotal: 60 }
+        ],
+        vencedorInformado: null,
+        precoReferencia: 50,
+        match: { tipo: 'nenhum', itemId: null, itemNome: null, similaridade: 0, sugestoes: [] }
+      }
+    ],
+    [{ linha: 1, acao: 'associar', itemId: itemTeto.id, salvarAlias: false }]
+  )
+  const hTeto = historicoItem(db, itemTeto.id)
+  check('teto de referência = 50', hTeto.stats.precoReferencia === 50, hTeto.stats.precoReferencia)
+  check('1 oferta acima do teto (Caro 60 > 50)', hTeto.stats.acimaDoTeto === 1, hTeto.stats.acimaDoTeto)
+  check('registro carrega o teto', hTeto.registros.every((r) => r.preco_referencia === 50))
 
   db2.close()
   db.close()
