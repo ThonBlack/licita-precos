@@ -68,7 +68,8 @@ const PASSOS: Passo[] = [
             Clique <strong>Preparar mapa para IA</strong> (o app cria a planilha).
           </li>
           <li>
-            Clique <strong>Adicionar fotos/PDF</strong> e escolha as fotos do mapa.
+            Clique <strong>Adicionar arquivos</strong> e escolha os arquivos do mapa (foto, PDF,
+            Word, .txt, planilha).
           </li>
           <li>
             Clique <strong>Copiar prompt</strong> e <strong>Abrir Antigravity</strong> — cole lá e

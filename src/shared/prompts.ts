@@ -32,8 +32,8 @@ export function montarPromptAntigravity(caminhoXlsx: string, caminhosMapas: stri
   const xlsx = caminhoXlsx || '[gere a planilha no app primeiro]'
   const mapas = caminhosMapas.length
     ? caminhosMapas.map((c) => `  • ${c}`).join('\n')
-    : '  • [adicione as fotos/PDFs do mapa clicando em "Adicionar fotos/PDF" no app]'
-  return `Você tem acesso aos arquivos deste PC. Preciso preencher a planilha modelo do app "LicitaPreços" a partir de mapas de apuração de licitação (fotos, prints ou PDFs).
+    : '  • [adicione os arquivos do mapa clicando em "Adicionar arquivos" no app]'
+  return `Você tem acesso aos arquivos deste PC. Preciso preencher a planilha modelo do app "LicitaPreços" a partir de mapas de apuração de licitação (podem vir como foto, print, PDF, Word .doc/.docx, texto .txt ou planilha).
 
 ARQUIVOS
 - Planilha modelo (já criada pelo app, preencha a aba "Mapa"): ${xlsx}

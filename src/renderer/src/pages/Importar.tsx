@@ -422,14 +422,15 @@ export function Importar() {
           <div className="space-y-3">
             <ol className="list-decimal space-y-1 pl-5 text-sm text-zinc-600">
               <li>
-                Adicione as fotos/PDFs do mapa <span className="text-zinc-400">(pode marcar vários)</span>.
+                Adicione os arquivos do mapa — foto, PDF, Word, .txt, planilha{' '}
+                <span className="text-zinc-400">(pode marcar vários)</span>.
               </li>
               <li>Copie o prompt e abra o Antigravity — cole lá e mande rodar.</li>
               <li>Quando ele terminar, clique em “Já preenchi — importar”.</li>
             </ol>
             <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline" onClick={adicionarArquivos}>
-                <Paperclip className="h-4 w-4" /> Adicionar fotos/PDF ({sessao.caminhosMapas.length})
+                <Paperclip className="h-4 w-4" /> Adicionar arquivos ({sessao.caminhosMapas.length})
               </Button>
               <Button size="sm" variant="outline" onClick={copiarPromptAntigravity}>
                 {copiado ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}

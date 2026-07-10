@@ -262,10 +262,22 @@ export function registrarIpc(db: DB, dbPath: string): void {
     const destinoDir = join(pastaSessao, 'arquivos')
     mkdirSync(destinoDir, { recursive: true })
     const { canceled, filePaths } = await dialog.showOpenDialog({
-      title: 'Selecionar fotos/PDFs do mapa (pode marcar vários)',
+      title: 'Selecionar arquivos do mapa (pode marcar vários)',
       properties: ['openFile', 'multiSelections'],
       filters: [
-        { name: 'Imagens e PDF', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic', 'pdf'] },
+        {
+          name: 'Mapas (imagem, PDF, Word, texto, planilha)',
+          extensions: [
+            // imagens
+            'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tif', 'tiff', 'heic',
+            // pdf
+            'pdf',
+            // documentos
+            'doc', 'docx', 'txt', 'rtf', 'odt',
+            // planilhas
+            'xls', 'xlsx', 'csv', 'ods'
+          ]
+        },
         { name: 'Todos os arquivos', extensions: ['*'] }
       ]
     })
